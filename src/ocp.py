@@ -3,6 +3,7 @@ from gen_trajectory import gen_circle_traj, gen_straight_traj
 from store_results import store_data, create_plots
 from acados_template import AcadosOcp, AcadosOcpSolver, AcadosSim, AcadosSimSolver
 from dynamics import DroneDynamics
+import copy
 
 
 class OCP():
@@ -108,7 +109,7 @@ class OCP():
         return self.integrator.get("x")
 
 
-def main(store: bool = True):
+def main(circle: bool = False, store: bool = True):
 
     N = 100  # sample points
     T = 5  # seconds
@@ -119,19 +120,22 @@ def main(store: bool = True):
     nu = drone.model.u.shape[0]
 
     # generate trajectory
-    radius = 1
-    length = 1
-    # xref = gen_straight_traj(N, T, nx, [0, 0], length=length)
-    xref = gen_circle_traj(
-        N+N_horizon, T, nx, center=np.array([0, 0]), radius=radius)
     uref = np.zeros((N+N_horizon, nu))
-    # jerk = 6*length / T**3
-    # uref = np.zeros((N, nu))
-    # uref[:, 0] = np.ones(N) * jerk
+
+    if circle:
+        radius = 1
+        xref = gen_circle_traj(
+            N+N_horizon, T, nx, center=np.array([0, 0]), radius=radius)
+    else:
+        length = 1
+        xref = gen_straight_traj(N+N_horizon, T, nx, [0, 0], length=length)
+        jerk = 6*length / T**3
+        uref[:, 0] = np.ones(N+N_horizon) * jerk
 
     # output arrays
     Xsim = np.zeros((N+1, nx))
-    Xsim[0, :] = xref[0, :]
+    Xsim[0, :] = copy.deepcopy(xref[0, :])
+    Xsim[0, 1] = 1  # start at (px, pz) = (0,1)
     U_opt = np.zeros((N, nu))
 
     # create OCP
@@ -152,7 +156,7 @@ def main(store: bool = True):
             x0_bar=Xsim[iteration, :])
 
         print(
-            f'{iteration}: U_opt: {U_opt[iteration, :]} X: {Xsim[iteration, :]}')
+            f'{iteration}: U_opt: {np.round(U_opt[iteration, :], 2)} X: {np.round(Xsim[iteration, :], 2)}')
 
         Xsim[iteration+1, :] = ocp.simulate_next_x(
             Xsim[iteration, :], U_opt[iteration, :])
@@ -165,4 +169,4 @@ def main(store: bool = True):
 
 # define main function for testing
 if __name__ == '__main__':
-    main(store=True)
+    main(circle=True, store=True)

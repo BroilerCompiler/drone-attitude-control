@@ -24,7 +24,6 @@ class DroneDynamics:
         vz = ca.SX.sym('vz', 1)
 
         ax = ca.SX.sym('ax', 1)  # add gravity
-        # TODO: simulate line (reference)
         az = ca.SX.sym('az', 1)
 
         hx = ca.SX.sym('hx', 1)

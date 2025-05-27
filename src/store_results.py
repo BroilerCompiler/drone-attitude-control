@@ -6,12 +6,12 @@ from acados_template.plot_utils import latexify_plot
 
 def store_data(XRef, XSim, UOpt):
     d = datetime.today().strftime('%Y-%m-%d %H_%M_%S')
-    XRef_path, XSim_path, UOpt_path = f'../experiment_data/{d}_XRef.npy', f'../experiment_data/{d}_XSim.npy', f'../experiment_data/{d}_UOpt.npy'
+    XRef_path, XSim_path, UOpt_path = f'../experiment_data/npy/{d}_XRef.npy', f'../experiment_data/npy/{d}_XSim.npy', f'../experiment_data/npy/{d}_UOpt.npy'
     np.save(XRef_path, XRef)
     np.save(XSim_path, XSim)
     np.save(UOpt_path, UOpt)
     # np.save(f'sol_conv{d}.npy', solver_converged)
-    print(f'Stored data to ../experiment_data/')
+    print(f'Stored data to ../experiment_data/npy/')
     return XRef_path, XSim_path, UOpt_path
 
 
