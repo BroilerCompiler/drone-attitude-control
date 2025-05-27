@@ -1,4 +1,5 @@
 import numpy as np
+from dynamics import compare_reftraj_vs_sim
 from params import ExperimentParameters
 p = ExperimentParameters()
 
@@ -47,7 +48,7 @@ def gen_straight_traj(nx, initial, length):
     xref = np.zeros((p.N_horizon+p.N+1, nx))
     for i in range(p.N_horizon+p.N+1):
         xref[i, 0] = initial[0] + 1/6 * jerk * (i * p.dt)**3
-        xref[i, 1] = 0
+        xref[i, 1] = initial[1]
         xref[i, 2] = 0.5 * jerk * (i * p.dt)**2
         xref[i, 3] = 0
         xref[i, 4] = jerk * i * p.dt
@@ -67,12 +68,12 @@ def gen_circle_traj(nx, center, radius) -> np.array:
         xref[i, 1] = center[1] + radius*np.sin(omega*i/p.N*p.T)
 
         # velocity ref
-        xref[i, 2] = -radius*np.sin(omega*i/p.N*p.T)*omega/p.N
-        xref[i, 3] = radius*np.cos(omega*i/p.N*p.T)*omega/p.N
+        xref[i, 2] = -radius*np.sin(omega*i/p.N*p.T)*omega
+        xref[i, 3] = radius*np.cos(omega*i/p.N*p.T)*omega
 
         # acceleration ref
-        xref[i, 4] = - radius * np.cos(omega*i/p.N*p.T)*(omega/p.N)**2
-        xref[i, 5] = - radius * np.sin(omega*i/p.N*p.T)*(omega/p.N)**2
+        xref[i, 4] = - radius * np.cos(omega*i/p.N*p.T)*(omega)**2
+        xref[i, 5] = - radius * np.sin(omega*i/p.N*p.T)*(omega)**2
 
     return xref
 
@@ -80,8 +81,9 @@ def gen_circle_traj(nx, center, radius) -> np.array:
 # define main function for testing
 if __name__ == '__main__':
     radius = 1
-    center = np.array([0, 1])
+    center = np.array([0, 0])
     circle = gen_circle_traj(6, center, radius)
-    print(
-        f'Coordinates of {p.N} sample points with radius {radius} around {center}:')
-    print(circle)
+    length = 1
+    straight = gen_straight_traj(6, center, length)
+    compare_reftraj_vs_sim(t=np.linspace(0, p.T, p.N+1),
+                           reftraj=traj[:p.N+1], simX=simX, u=u_vec)
