@@ -94,6 +94,14 @@ class DroneData:
             PWM2RPM_SCALE, PWM2RPM_CONST, MIN_PWM, MAX_PWM
 
 
+class ExperimentParameters:
+    def __init__(self):
+        self.T = 5
+        self.N = 100
+        self.dt = self.T/self.N
+        self.N_horizon = 30
+
+
 # define main function for testing
 if __name__ == '__main__':
     drone_data = DroneData()

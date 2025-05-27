@@ -1,9 +1,11 @@
 import numpy as np
+import copy
 from gen_trajectory import gen_circle_traj, gen_straight_traj
 from store_results import store_data, create_plots
 from acados_template import AcadosOcp, AcadosOcpSolver, AcadosSim, AcadosSimSolver
 from dynamics import DroneDynamics
-import copy
+from params import ExperimentParameters
+p = ExperimentParameters()
 
 
 class OCP():
@@ -75,7 +77,7 @@ class OCP():
 
         self.ocp.constraints.x0 = x0
 
-    def create_ocp_solver(self, N_horizon, dt):
+    def create_ocp_solver(self):
 
         # Solver options
         self.ocp.solver_options.qp_solver = 'PARTIAL_CONDENSING_HPIPM'
@@ -87,17 +89,17 @@ class OCP():
         # self.ocp.solver_options.tol = 1e-5
         # self.ocp.solver_options.levenberg_marquardt = 1e-3
 
-        self.ocp.solver_options.N_horizon = N_horizon
-        self.ocp.solver_options.tf = dt*N_horizon
+        self.ocp.solver_options.N_horizon = p.N_horizon
+        self.ocp.solver_options.tf = p.dt*p.N_horizon
 
         self.ocp_solver = AcadosOcpSolver(
             self.ocp, json_file=self.ocp_name+'.json', verbose=False)
 
-    def create_simulator(self, model, dt=0.1):
+    def create_simulator(self, model):
 
         self.sim = AcadosSim()
         self.sim.model = model
-        self.sim.solver_options.T = dt
+        self.sim.solver_options.T = p.dt
         self.integrator = AcadosSimSolver(self.sim, verbose=False)
 
     def simulate_next_x(self, x0, u):
@@ -111,46 +113,42 @@ class OCP():
 
 def main(circle: bool = False, store: bool = True):
 
-    N = 100  # sample points
-    T = 5  # seconds
-    dt = T/N
-    N_horizon = 30
     drone = DroneDynamics()
     nx = drone.model.x.shape[0]
     nu = drone.model.u.shape[0]
 
     # generate trajectory
-    uref = np.zeros((N+N_horizon, nu))
+    uref = np.zeros((p.N+p.N_horizon, nu))
 
     if circle:
         radius = 1
-        xref = gen_circle_traj(
-            N+N_horizon, T, nx, center=np.array([0, 0]), radius=radius)
+        xref = gen_circle_traj(nx, center=np.array([0, 0]), radius=radius)
     else:
         length = 1
-        xref = gen_straight_traj(N+N_horizon, T, nx, [0, 0], length=length)
-        jerk = 6*length / T**3
-        uref[:, 0] = np.ones(N+N_horizon) * jerk
+        xref = gen_straight_traj(nx, [0, 0], length=length)
+        jerk = 6*length / p.T**3
+        uref[:, 0] = np.ones(p.N+p.N_horizon) * jerk
 
     # output arrays
-    Xsim = np.zeros((N+1, nx))
+    Xsim = np.zeros((p.N+1, nx))
     Xsim[0, :] = copy.deepcopy(xref[0, :])
     Xsim[0, 1] = 1  # start at (px, pz) = (0,1)
-    U_opt = np.zeros((N, nu))
+    U_opt = np.zeros((p.N, nu))
 
     # create OCP
     ocp = OCP()
     ocp.create_ocp(drone.model, x0=xref[0, :])
-    ocp.create_ocp_solver(N_horizon, dt)
-    ocp.create_simulator(drone.model, dt)
+    ocp.create_ocp_solver()
+    ocp.create_simulator(drone.model)
 
     # Solve OCP
-    for iteration in range(N):
+    for iteration in range(p.N):
         # Set up OCP
-        for k in range(N_horizon):
+        for k in range(p.N_horizon):
             ocp.ocp_solver.set(k, 'yref', np.hstack(
                 (xref[iteration + k, :], uref[iteration + k, :])))
-        ocp.ocp_solver.set(N_horizon, 'yref', xref[iteration + N_horizon, :])
+        ocp.ocp_solver.set(p.N_horizon, 'yref',
+                           xref[iteration + p.N_horizon, :])
 
         U_opt[iteration, :] = ocp.ocp_solver.solve_for_x0(
             x0_bar=Xsim[iteration, :])
@@ -163,8 +161,8 @@ def main(circle: bool = False, store: bool = True):
 
     # Store results
     if store:
-        XRef_path, XSim_path, UOpt_path = store_data(xref[:N], Xsim, U_opt)
-        create_plots(XRef_path, XSim_path, UOpt_path, dt=dt, store_plots=True)
+        XRef_path, XSim_path, UOpt_path = store_data(xref[:p.N], Xsim, U_opt)
+        create_plots(XRef_path, XSim_path, UOpt_path, store_plots=True)
 
 
 # define main function for testing
