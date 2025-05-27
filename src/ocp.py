@@ -1,0 +1,168 @@
+import numpy as np
+from gen_trajectory import gen_circle_traj, gen_straight_traj
+from store_results import store_data, create_plots
+from acados_template import AcadosOcp, AcadosOcpSolver, AcadosSim, AcadosSimSolver
+from dynamics import DroneDynamics
+
+
+class OCP():
+    def __init__(self, ocp_name='acados_ocp'):
+        self.ocp_name = ocp_name
+        self.ocp = None
+        self.ocp_solver = None
+        self.sim = None
+        self.integrator = None  # sim_solver
+
+    def create_ocp(self, model, x0):
+
+        self.ocp = AcadosOcp()
+        self.ocp.code_export_directory = 'c_generated_code_' + self.ocp_name
+        self.ocp.model = model
+
+        # set cost module
+        self.ocp.cost.cost_type = 'LINEAR_LS'
+        self.ocp.cost.cost_type_e = 'LINEAR_LS'
+
+        # get dimensions
+        nx = self.ocp.model.x.size()[0]
+        nu = self.ocp.model.u.size()[0]
+        ny = nx + nu
+        ny_e = nx
+
+        # weighting matrices
+        w_x = np.array([1e2, 1e2, 1e0, 1e0, 1e0, 1e0])
+        w_x_e = np.array([1e2, 1e2, 1e0, 1e0, 1e0, 1e0])
+        Q = np.diag(w_x)
+
+        w_u = np.array([1e-1]*nu)
+        R = np.diag(w_u)
+
+        self.ocp.cost.W = np.block(
+            [[Q, np.zeros((nx, nu))], [np.zeros((nu, nx)), R]])
+        self.ocp.cost.W_e = np.diag(w_x_e)
+
+        # selection matrices
+        self.ocp.cost.Vx = np.zeros((ny, nx))
+        self.ocp.cost.Vx[:nx, :] = np.eye(nx)
+        self.ocp.cost.Vu = np.zeros((ny, nu))
+        self.ocp.cost.Vu[nx:, :] = np.eye(nu)
+
+        self.ocp.cost.Vx_e = np.eye(nx)
+
+        self.ocp.cost.yref = np.zeros((ny, ))
+        self.ocp.cost.yref_e = np.zeros((ny_e, ))
+
+        # set constraints
+        # on u
+        # max_jerk = 0.5
+        # self.ocp.constraints.constr_type = 'BGH'
+        # self.ocp.constraints.constr_type_e = 'BGH'
+        # self.ocp.constraints.lbu = np.array([-max_jerk, -max_jerk])
+        # self.ocp.constraints.ubu = np.array([max_jerk, max_jerk])
+        # self.ocp.constraints.idxbu = np.array([0, 1])
+
+        # # set constraints
+        # # on x
+        # max_p = 1.5
+        # max_v = 0.5
+        # max_a = 0.5
+        # self.ocp.constraints.lbx = np.array(
+        #     [-max_p, -max_p, -max_v, -max_v, -max_a, -max_a])
+        # self.ocp.constraints.ubx = np.array(
+        #     [max_p, max_p, max_v, max_v, max_a, max_a])
+        # self.ocp.constraints.idxbx = np.array([0, 1, 2, 3, 4, 5])
+
+        self.ocp.constraints.x0 = x0
+
+    def create_ocp_solver(self, N_horizon, dt):
+
+        # Solver options
+        self.ocp.solver_options.qp_solver = 'PARTIAL_CONDENSING_HPIPM'
+        self.ocp.solver_options.hessian_approx = 'GAUSS_NEWTON'
+        self.ocp.solver_options.integrator_type = 'IRK'
+        self.ocp.solver_options.nlp_solver_type = 'SQP'
+        self.ocp.solver_options.print_level = 0
+        # self.ocp.solver_options.qp_tol = 1e-4
+        # self.ocp.solver_options.tol = 1e-5
+        # self.ocp.solver_options.levenberg_marquardt = 1e-3
+
+        self.ocp.solver_options.N_horizon = N_horizon
+        self.ocp.solver_options.tf = dt*N_horizon
+
+        self.ocp_solver = AcadosOcpSolver(
+            self.ocp, json_file=self.ocp_name+'.json', verbose=False)
+
+    def create_simulator(self, model, dt=0.1):
+
+        self.sim = AcadosSim()
+        self.sim.model = model
+        self.sim.solver_options.T = dt
+        self.integrator = AcadosSimSolver(self.sim, verbose=False)
+
+    def simulate_next_x(self, x0, u):
+
+        self.integrator.set("u", u)
+        self.integrator.set("x", x0)
+        self.integrator.solve()
+
+        return self.integrator.get("x")
+
+
+def main(store: bool = True):
+
+    N = 100  # sample points
+    T = 5  # seconds
+    dt = T/N
+    N_horizon = 30
+    drone = DroneDynamics()
+    nx = drone.model.x.shape[0]
+    nu = drone.model.u.shape[0]
+
+    # generate trajectory
+    radius = 1
+    length = 1
+    # xref = gen_straight_traj(N, T, nx, [0, 0], length=length)
+    xref = gen_circle_traj(
+        N+N_horizon, T, nx, center=np.array([0, 0]), radius=radius)
+    uref = np.zeros((N+N_horizon, nu))
+    # jerk = 6*length / T**3
+    # uref = np.zeros((N, nu))
+    # uref[:, 0] = np.ones(N) * jerk
+
+    # output arrays
+    Xsim = np.zeros((N+1, nx))
+    Xsim[0, :] = xref[0, :]
+    U_opt = np.zeros((N, nu))
+
+    # create OCP
+    ocp = OCP()
+    ocp.create_ocp(drone.model, x0=xref[0, :])
+    ocp.create_ocp_solver(N_horizon, dt)
+    ocp.create_simulator(drone.model, dt)
+
+    # Solve OCP
+    for iteration in range(N):
+        # Set up OCP
+        for k in range(N_horizon):
+            ocp.ocp_solver.set(k, 'yref', np.hstack(
+                (xref[iteration + k, :], uref[iteration + k, :])))
+        ocp.ocp_solver.set(N_horizon, 'yref', xref[iteration + N_horizon, :])
+
+        U_opt[iteration, :] = ocp.ocp_solver.solve_for_x0(
+            x0_bar=Xsim[iteration, :])
+
+        print(
+            f'{iteration}: U_opt: {U_opt[iteration, :]} X: {Xsim[iteration, :]}')
+
+        Xsim[iteration+1, :] = ocp.simulate_next_x(
+            Xsim[iteration, :], U_opt[iteration, :])
+
+    # Store results
+    if store:
+        XRef_path, XSim_path, UOpt_path = store_data(xref[:N], Xsim, U_opt)
+        create_plots(XRef_path, XSim_path, UOpt_path, dt=dt, store_plots=True)
+
+
+# define main function for testing
+if __name__ == '__main__':
+    main(store=True)
