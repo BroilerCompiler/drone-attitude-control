@@ -31,8 +31,8 @@ class DroneDynamics:
         hx = ca.SX.sym('hx', 1)
         hz = ca.SX.sym('hz', 1)
 
-        ax = a_omega_x  # + p.dt*hx
-        az = a_omega_z  # + p.dt*hz + GRAVITY_WORLD_COORD
+        ax = a_omega_x + p.dt*hz + 0
+        az = a_omega_z + p.dt*hx + GRAVITY_WORLD_COORD
 
         # define the dynamics
         f_expl = ca.vertcat(
@@ -50,7 +50,7 @@ class DroneDynamics:
         self.model.name = 'drone_pointmass_model'
         self.model.f_impl_expr = xdot - f_expl
         self.model.f_expl_expr = f_expl
-        self.model.x = ca.vertcat(*[px, pz, vx, vz, ax, az])
+        self.model.x = ca.vertcat(*[px, pz, vx, vz, a_omega_x, a_omega_z])
         self.model.xdot = xdot
         self.model.u = ca.vertcat(*[hx, hz])
 
