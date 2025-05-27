@@ -1,7 +1,6 @@
 import casadi as ca
 from acados_template import AcadosModel
 import numpy as np
-import copy
 from matplotlib import pyplot as plt
 from acados_template import AcadosSim, AcadosSimSolver
 from gen_trajectory import gen_circle_traj, gen_straight_traj
@@ -36,8 +35,6 @@ class DroneDynamics:
         ax = a_omega_x  # + p.dt*hx
         az = a_omega_z  # + p.dt*hz + GRAVITY_WORLD_COORD
 
-        xdot = ca.SX.sym('xdot', 6)
-
         # define the dynamics
         f_expl = ca.vertcat(
             vx,
@@ -48,14 +45,15 @@ class DroneDynamics:
             hz
         )
 
+        xdot = ca.SX.sym('xdot', f_expl.shape[0])
+
         self.model = AcadosModel()
-        self.model.name = 'point_mass_model'
+        self.model.name = 'drone_pointmass_model'
         self.model.f_impl_expr = xdot - f_expl
         self.model.f_expl_expr = f_expl
         self.model.x = ca.vertcat(*[px, pz, vx, vz, ax, az])
         self.model.xdot = xdot
         self.model.u = ca.vertcat(*[hx, hz])
-        self.model.name = 'drone_pointmass_model'
 
 
 def simulate_dynamics(model, x0, u):
@@ -184,8 +182,7 @@ def test_drone_dynamics(circle: bool = False):
         u_vec[:, 0] = np.ones(p.N) * jerk
 
     # start exactly on the reference
-    x0 = copy.deepcopy(traj[0, :])
-    x0[1] = 1
+    x0 = traj[0, :]
     simX = simulate_dynamics(drone.model, x0, u_vec)
     compare_reftraj_vs_sim(t=np.linspace(0, p.T, p.N+1),
                            reftraj=traj[:p.N+1], simX=simX, u=u_vec)
