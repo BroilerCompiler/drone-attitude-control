@@ -85,6 +85,7 @@ def simulate_dynamics(model, x0, u):
 
     integrator = AcadosSimSolver(sim, verbose=False)
 
+    # FIXME: integrator gives wrong results for circle trajectory. Maybe u is wrong. xref is correct
     nx = sim.model.x.shape[0]
     simX = np.ndarray((p.N+1, nx))
     simX[0, :] = x0
@@ -92,7 +93,6 @@ def simulate_dynamics(model, x0, u):
     for i in range(p.N):
 
         # Note that xdot is only used if an IRK integrator is used
-
         simX[i+1,
              :] = integrator.simulate(x=simX[i, :], u=u[i], xdot=np.concatenate([simX[i, 2:], u[i]]))
 

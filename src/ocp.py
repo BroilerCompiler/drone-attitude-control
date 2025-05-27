@@ -1,7 +1,6 @@
 import numpy as np
 import copy
 from gen_trajectory import gen_circle_traj, gen_straight_traj, compare_reftraj_vs_sim
-from store_results import store_data, create_plots
 from acados_template import AcadosOcp, AcadosOcpSolver, AcadosSim, AcadosSimSolver
 from dynamics import DroneDynamics, compare_reftraj_vs_sim
 from params import ExperimentParameters
@@ -111,7 +110,7 @@ class OCP():
         return self.integrator.get("x")
 
 
-def main(circle: bool = False, store: bool = True):
+def main(circle: bool = False):
 
     drone = DroneDynamics()
     nx = drone.model.x.shape[0]
@@ -132,7 +131,6 @@ def main(circle: bool = False, store: bool = True):
     # output arrays
     Xsim = np.zeros((p.N+1, nx))
     Xsim[0, :] = copy.deepcopy(xref[0, :])
-    Xsim[0, 1] = 0  # start at (px, pz) = (0,1)
     U_opt = np.zeros((p.N, nu))
 
     # create OCP
@@ -166,4 +164,4 @@ def main(circle: bool = False, store: bool = True):
 
 # define main function for testing
 if __name__ == '__main__':
-    main(circle=True, store=True)
+    main(circle=False)
