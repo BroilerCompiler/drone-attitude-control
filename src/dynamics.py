@@ -1,6 +1,7 @@
 import casadi as ca
 from acados_template import AcadosModel
 import numpy as np
+import copy
 from matplotlib import pyplot as plt
 from acados_template import AcadosSim, AcadosSimSolver
 from gen_trajectory import gen_circle_traj, gen_straight_traj
@@ -106,16 +107,16 @@ def simulate_dynamics(model, x0, u):
 
 
 def compare_reftraj_vs_sim(t, reftraj, simX, u):
-    _, ax0 = plt.subplots(4)
+    _, ax0 = plt.subplots(2, 2)
     fig1, ax1 = plt.subplots(4, sharex=True)
     # z over x
-    ax0[0].plot(simX[:, 0], simX[:, 1], label='p_sim')
-    ax0[1].plot(simX[:, 2], simX[:, 3], label='v_sim')
-    ax0[2].plot(simX[:, 4], simX[:, 5], label='a_sim')
-    ax0[0].plot(reftraj[:, 0], reftraj[:, 1], label='p_ref')
-    ax0[1].plot(reftraj[:, 2], reftraj[:, 3], label='v_ref')
-    ax0[2].plot(reftraj[:, 4], reftraj[:, 5], label='a_ref')
-    ax0[3].plot(u[:, 0], u[:, 1], label='h')
+    ax0[0, 0].plot(simX[:, 0], simX[:, 1], label='p_sim')
+    ax0[0, 1].plot(simX[:, 2], simX[:, 3], label='v_sim')
+    ax0[1, 0].plot(simX[:, 4], simX[:, 5], label='a_sim')
+    ax0[0, 0].plot(reftraj[:, 0], reftraj[:, 1], label='p_ref')
+    ax0[0, 1].plot(reftraj[:, 2], reftraj[:, 3], label='v_ref')
+    ax0[1, 0].plot(reftraj[:, 4], reftraj[:, 5], label='a_ref')
+    ax0[1, 1].plot(u[:, 0], u[:, 1], label='h')
 
     # component-wise
     ax1[0].plot(t, simX[:, 0], label='p_sim_x')
@@ -133,26 +134,26 @@ def compare_reftraj_vs_sim(t, reftraj, simX, u):
     ax1[3].plot(t[:-1], u[:, 0], label='h_x')
     ax1[3].plot(t[:-1], u[:, 1], label='h_z')
     fig1.supxlabel('Seconds')
+    ax0[0, 0].legend()
+    ax0[0, 1].legend()
+    ax0[1, 0].legend()
+    ax0[1, 1].legend()
     ax1[0].legend()
-    ax0[0].legend()
     ax1[1].legend()
-    ax0[1].legend()
     ax1[2].legend()
-    ax0[2].legend()
     ax1[3].legend()
-    ax0[3].legend()
-    ax0[0].grid()
-    ax0[1].grid()
-    ax0[2].grid()
-    ax0[3].grid()
+    ax0[0, 0].grid()
+    ax0[0, 1].grid()
+    ax0[1, 0].grid()
+    ax0[1, 1].grid()
     ax1[0].grid()
     ax1[1].grid()
     ax1[2].grid()
     ax1[3].grid()
-    ax0[0].axis('equal')
-    ax0[1].axis('equal')
-    ax0[2].axis('equal')
-    ax0[3].axis('equal')
+    ax0[0, 0].axis('equal')
+    ax0[0, 1].axis('equal')
+    ax0[1, 0].axis('equal')
+    ax0[1, 1].axis('equal')
 
     plt.show()
 
@@ -183,12 +184,13 @@ def test_drone_dynamics(circle: bool = False):
         u_vec[:, 0] = np.ones(p.N) * jerk
 
     # start exactly on the reference
-    x0 = traj[0, :]
+    x0 = copy.deepcopy(traj[0, :])
+    x0[1] = 1
     simX = simulate_dynamics(drone.model, x0, u_vec)
     compare_reftraj_vs_sim(t=np.linspace(0, p.T, p.N+1),
-                           reftraj=traj, simX=simX, u=u_vec)
+                           reftraj=traj[:p.N+1], simX=simX, u=u_vec)
 
 
 # define main function for testing
 if __name__ == '__main__':
-    test_drone_dynamics(circle=True)
+    test_drone_dynamics(circle=False)

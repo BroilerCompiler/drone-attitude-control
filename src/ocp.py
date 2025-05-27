@@ -3,7 +3,7 @@ import copy
 from gen_trajectory import gen_circle_traj, gen_straight_traj
 from store_results import store_data, create_plots
 from acados_template import AcadosOcp, AcadosOcpSolver, AcadosSim, AcadosSimSolver
-from dynamics import DroneDynamics
+from dynamics import DroneDynamics, compare_reftraj_vs_sim
 from params import ExperimentParameters
 p = ExperimentParameters()
 
@@ -55,8 +55,8 @@ class OCP():
         self.ocp.cost.yref = np.zeros((ny, ))
         self.ocp.cost.yref_e = np.zeros((ny_e, ))
 
-        # set constraints
-        # on u
+        # # set constraints
+        # # on u
         # max_jerk = 0.5
         # self.ocp.constraints.constr_type = 'BGH'
         # self.ocp.constraints.constr_type_e = 'BGH'
@@ -132,7 +132,7 @@ def main(circle: bool = False, store: bool = True):
     # output arrays
     Xsim = np.zeros((p.N+1, nx))
     Xsim[0, :] = copy.deepcopy(xref[0, :])
-    Xsim[0, 1] = 1  # start at (px, pz) = (0,1)
+    Xsim[0, 1] = 0  # start at (px, pz) = (0,1)
     U_opt = np.zeros((p.N, nu))
 
     # create OCP
@@ -159,10 +159,9 @@ def main(circle: bool = False, store: bool = True):
         Xsim[iteration+1, :] = ocp.simulate_next_x(
             Xsim[iteration, :], U_opt[iteration, :])
 
-    # Store results
-    if store:
-        XRef_path, XSim_path, UOpt_path = store_data(xref[:p.N], Xsim, U_opt)
-        create_plots(XRef_path, XSim_path, UOpt_path, store_plots=True)
+    # show results
+    compare_reftraj_vs_sim(t=np.linspace(0, p.T, p.N+1),
+                           reftraj=xref[:p.N+1], simX=Xsim, u=U_opt)
 
 
 # define main function for testing
