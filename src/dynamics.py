@@ -1,9 +1,8 @@
 import casadi as ca
 from acados_template import AcadosModel
 import numpy as np
-from matplotlib import pyplot as plt
 from acados_template import AcadosSim, AcadosSimSolver
-from gen_trajectory import gen_circle_traj, gen_straight_traj
+from gen_trajectory import gen_circle_traj, gen_straight_traj, compare_reftraj_vs_sim
 from params import ExperimentParameters
 p = ExperimentParameters()
 
@@ -81,12 +80,8 @@ def simulate_dynamics(model, x0, u):
     sim.model = model
 
     sim.solver_options.integrator_type = 'IRK'
-    sim.solver_options.num_stages = 4
-    sim.solver_options.num_steps = 3
-    sim.solver_options.newton_iter = 8  # for implicit integrator
-    sim.solver_options.collocation_type = "GAUSS_RADAU_IIA"
 
-    sim.solver_options.T = p.T
+    sim.solver_options.T = p.dt
 
     integrator = AcadosSimSolver(sim, verbose=False)
 
@@ -104,64 +99,6 @@ def simulate_dynamics(model, x0, u):
     return simX
 
 
-def compare_reftraj_vs_sim(t, reftraj, simX, u):
-    _, ax0 = plt.subplots(2, 2)
-    fig1, ax1 = plt.subplots(4, sharex=True)
-    # z over x
-    if reftraj:
-        ax0[0, 0].plot(simX[:, 0], simX[:, 1], label='p_sim')
-        ax0[0, 1].plot(simX[:, 2], simX[:, 3], label='v_sim')
-        ax0[1, 0].plot(simX[:, 4], simX[:, 5], label='a_sim')
-    if simX:
-        ax0[0, 0].plot(reftraj[:, 0], reftraj[:, 1], label='p_ref')
-        ax0[0, 1].plot(reftraj[:, 2], reftraj[:, 3], label='v_ref')
-        ax0[1, 0].plot(reftraj[:, 4], reftraj[:, 5], label='a_ref')
-    if u:
-        ax0[1, 1].plot(u[:, 0], u[:, 1], label='h')
-
-    # component-wise
-    if reftraj:
-        ax1[0].plot(t, reftraj[:, 0], label='p_ref_x')
-        ax1[1].plot(t, reftraj[:, 2], label='v_ref_x')
-        ax1[2].plot(t, reftraj[:, 4], label='a_ref_x')
-        ax1[0].plot(t, reftraj[:, 1], label='p_ref_z')
-        ax1[1].plot(t, reftraj[:, 3], label='v_ref_z')
-        ax1[2].plot(t, reftraj[:, 5], label='a_ref_z')
-    if simX:
-        ax1[0].plot(t, simX[:, 0], label='p_sim_x')
-        ax1[1].plot(t, simX[:, 2], label='v_sim_x')
-        ax1[2].plot(t, simX[:, 4], label='a_sim_x')
-        ax1[0].plot(t, simX[:, 1], label='p_sim_z')
-        ax1[1].plot(t, simX[:, 3], label='v_sim_z')
-        ax1[2].plot(t, simX[:, 5], label='a_sim_z')
-    if u:
-        ax1[3].plot(t[:-1], u[:, 0], label='h_x')
-        ax1[3].plot(t[:-1], u[:, 1], label='h_z')
-    fig1.supxlabel('Seconds')
-    ax0[0, 0].legend()
-    ax0[0, 1].legend()
-    ax0[1, 0].legend()
-    ax0[1, 1].legend()
-    ax1[0].legend()
-    ax1[1].legend()
-    ax1[2].legend()
-    ax1[3].legend()
-    ax0[0, 0].grid()
-    ax0[0, 1].grid()
-    ax0[1, 0].grid()
-    ax0[1, 1].grid()
-    ax1[0].grid()
-    ax1[1].grid()
-    ax1[2].grid()
-    ax1[3].grid()
-    ax0[0, 0].axis('equal')
-    ax0[0, 1].axis('equal')
-    ax0[1, 0].axis('equal')
-    ax0[1, 1].axis('equal')
-
-    plt.show()
-
-
 def test_drone_dynamics(circle: bool = False):
     """Generate jerk trajectory that corresponds to a circle and
     simulate it forward (single shooting) using the model of the drone
@@ -176,11 +113,11 @@ def test_drone_dynamics(circle: bool = False):
     # Reference
     if circle:
         radius = 1
-        omega = 2*np.pi/p.T
+        omega = 2*ca.pi/p.T
         traj = gen_circle_traj(nx, center=[0, 0], radius=radius)
         for i in range(p.N):
-            u_vec[i, 0] = radius * np.sin(omega*i/p.N*p.T)*(omega/p.N)**3
-            u_vec[i, 1] = - radius * np.cos(omega*i/p.N*p.T)*(omega/p.N)**3
+            u_vec[i, 0] = radius * ca.sin(omega*i/p.N*p.T)*(omega)**3
+            u_vec[i, 1] = - radius * ca.cos(omega*i/p.N*p.T)*(omega)**3
     else:
         length = 1
         traj = gen_straight_traj(nx, initial=[0, 0], length=length)
@@ -190,10 +127,25 @@ def test_drone_dynamics(circle: bool = False):
     # start exactly on the reference
     x0 = traj[0, :]
     simX = simulate_dynamics(drone.model, x0, u_vec)
+
+    # plot results
+    print(f"Maximum values:")
+    print(
+        f"px_ref: {abs(traj[:p.N+1, 0]).max()}, px_sim: {abs(simX[:, 0]).max()}")
+    print(
+        f"pz_ref: {abs(traj[:p.N+1, 1]).max()}, pz_sim: {abs(simX[:, 1]).max()}")
+    print(
+        f"vx_ref: {abs(traj[:p.N+1, 2]).max()}, vx_sim: {abs(simX[:, 2]).max()}")
+    print(
+        f"vz_ref: {abs(traj[:p.N+1, 3]).max()}, vz_sim: {abs(simX[:, 3]).max()}")
+    print(
+        f"ax_ref: {abs(traj[:p.N+1, 4]).max()}, ax_sim: {abs(simX[:, 4]).max()}")
+    print(
+        f"az_ref: {abs(traj[:p.N+1, 5]).max()}, az_sim: {abs(simX[:, 5]).max()}")
     compare_reftraj_vs_sim(t=np.linspace(0, p.T, p.N+1),
                            reftraj=traj[:p.N+1], simX=simX, u=u_vec)
 
 
 # define main function for testing
 if __name__ == '__main__':
-    test_drone_dynamics(circle=False)
+    test_drone_dynamics(circle=True)

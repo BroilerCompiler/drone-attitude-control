@@ -1,6 +1,6 @@
 import numpy as np
 import copy
-from gen_trajectory import gen_circle_traj, gen_straight_traj
+from gen_trajectory import gen_circle_traj, gen_straight_traj, compare_reftraj_vs_sim
 from store_results import store_data, create_plots
 from acados_template import AcadosOcp, AcadosOcpSolver, AcadosSim, AcadosSimSolver
 from dynamics import DroneDynamics, compare_reftraj_vs_sim
