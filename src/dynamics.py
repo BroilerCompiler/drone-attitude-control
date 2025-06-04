@@ -68,9 +68,9 @@ class PlantModel:
         f_expl = ca.vertcat(
             vx,
             vz,
-            1/drone_data.MASS * Fd * ca.cos(theta) + 0,  # ax
+            1/drone_data.MASS * Fd * ca.sin(theta) + 0,  # ax
             1/drone_data.MASS * Fd *
-            ca.sin(theta) - drone_data.GRAVITY_ACC  # az
+            ca.cos(theta) - drone_data.GRAVITY_ACC  # az
         )
 
         xdot = ca.SX.sym('xdot', f_expl.shape[0])
@@ -154,7 +154,7 @@ def simulate_dynamics(model, x0, u):
 
         # Note that xdot is only used if an IRK integrator is used
         simX[i+1,
-             :] = integrator.simulate(x=simX[i, :], u=u[i], xdot=np.concatenate([simX[i, 2:], u[i]]))
+             :] = integrator.simulate(x=simX[i, :], u=u[i])
 
     return simX
 

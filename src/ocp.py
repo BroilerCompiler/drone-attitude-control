@@ -134,6 +134,7 @@ def main(circle: bool = False):
     # output arrays
     Xsim = np.zeros((p.N+1, nx))
     Xsim[0, :] = copy.deepcopy(xref[0, :])
+    Xsim[0, :] = np.zeros(Xsim.shape[1])
     U_opt_plant = np.zeros((p.N, nu))
 
     # create OCP
@@ -156,7 +157,7 @@ def main(circle: bool = False):
         U_opt_plant[iteration, :] = converter.convert(U_opt_control)
 
         print(
-            f'{iteration}: U_opt: {np.round(U_opt_plant[iteration, :], 2)} X: {np.round(Xsim[iteration, :], 2)}')
+            f'{iteration}: U_opt [theta F_d]: {np.round(U_opt_plant[iteration, :], 2)} X: {np.round(Xsim[iteration, :], 2)}')
 
         Xsim[iteration+1, :] = ocp.simulate_next_x(
             Xsim[iteration, :], U_opt_plant[iteration, :])
