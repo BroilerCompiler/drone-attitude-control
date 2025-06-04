@@ -177,8 +177,10 @@ def test_drone_dynamics(circle: bool = False):
         omega = 2*ca.pi/p.T
         traj = gen_circle_traj(nx, center=[0, 0], radius=radius)
         for i in range(p.N):
-            uref_ctrl[i, 0] = radius * ca.sin(omega*i/p.N*p.T)*(omega)**3
-            uref_ctrl[i, 1] = - radius * ca.cos(omega*i/p.N*p.T)*(omega)**3
+            # acceleration ref
+            uref_ctrl[i, 0] = - radius * ca.cos(omega*i/p.N*p.T)*(omega)**2
+            uref_ctrl[i, 1] = - radius * \
+                ca.sin(omega*i/p.N*p.T)*(omega)**2 + drone_data.GRAVITY
     else:
         static_point = [1, 0.5]
         traj = gen_static_point_traj(nx, static_point)
@@ -187,7 +189,7 @@ def test_drone_dynamics(circle: bool = False):
     # start exactly on the reference
     # and simulate states over the whole trajectory using the plant model
     x0 = traj[0, :]
-    uref_plant = converter.convert(uref_ctrl)
+    uref_plant = np.load('u_opt_plant_circle.npy')
     simX = simulate_dynamics(plantModel.model, x0, uref_plant)
 
     # plot results
@@ -206,4 +208,4 @@ def test_drone_dynamics(circle: bool = False):
 
 # define main function for testing
 if __name__ == '__main__':
-    test_drone_dynamics(circle=False)
+    test_drone_dynamics(circle=True)

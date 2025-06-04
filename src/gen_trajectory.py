@@ -80,10 +80,6 @@ def gen_circle_traj(nx, center, radius) -> np.array:
         xref[i, 2] = -radius*ca.sin(omega*i/p.N*p.T)*omega
         xref[i, 3] = radius*ca.cos(omega*i/p.N*p.T)*omega
 
-        # acceleration ref
-        xref[i, 4] = - radius * ca.cos(omega*i/p.N*p.T)*(omega)**2
-        xref[i, 5] = - radius * ca.sin(omega*i/p.N*p.T)*(omega)**2
-
     return xref
 
 
@@ -92,11 +88,11 @@ def compare_reftraj_vs_sim(t, reftraj, simX, u):
     fig1, ax1 = plt.subplots(3, sharex=True)
     # z over x
     if simX is not None:
-        ax0[0].plot(simX[:, 0], simX[:, 1], label='p_sim')
-        ax0[1].plot(simX[:, 2], simX[:, 3], label='v_sim')
+        ax0[0].plot(simX[:, 0], simX[:, 1], label='$p^\\mathrm{sim}$')
+        ax0[1].plot(simX[:, 2], simX[:, 3], label='$v^\\mathrm{sim}$')
     if reftraj is not None:
-        ax0[0].plot(reftraj[:, 0], reftraj[:, 1], label='p_ref')
-        ax0[1].plot(reftraj[:, 2], reftraj[:, 3], label='v_ref')
+        ax0[0].plot(reftraj[:, 0], reftraj[:, 1], label='$p^\\mathrm{ref}$')
+        ax0[1].plot(reftraj[:, 2], reftraj[:, 3], label='$v^\\mathrm{ref}$')
 
     # component-wise
     if simX is not None:

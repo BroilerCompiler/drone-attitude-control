@@ -120,7 +120,9 @@ def main(circle: bool = False):
     nu = controllerModel.model.u.shape[0]
 
     # generate trajectory
+    # with hover thrust as reference
     uref = np.zeros((p.N+p.N_horizon, nu))
+    uref[:, 1] = np.ones(uref.shape[0]) * drone_data.GRAVITY
 
     if circle:
         radius = 1
@@ -128,8 +130,6 @@ def main(circle: bool = False):
     else:
         static_point = [1, 0.5]
         xref = gen_static_point_traj(nx, static_point)
-        # hover thrust as reference
-        uref[:, 1] = np.ones(uref.shape[0]) * drone_data.GRAVITY
 
     # output arrays
     Xsim = np.zeros((p.N+1, nx))
@@ -169,4 +169,4 @@ def main(circle: bool = False):
 
 # define main function for testing
 if __name__ == '__main__':
-    main(circle=False)
+    main(circle=True)
