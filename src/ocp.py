@@ -1,10 +1,11 @@
 import numpy as np
 import copy
-from gen_trajectory import gen_circle_traj, gen_straight_traj, compare_reftraj_vs_sim
+from gen_trajectory import gen_circle_traj, gen_static_point_traj, compare_reftraj_vs_sim
 from acados_template import AcadosOcp, AcadosOcpSolver, AcadosSim, AcadosSimSolver
-from dynamics import DroneDynamics, compare_reftraj_vs_sim
-from params import ExperimentParameters
+from dynamics import ControllerModel, PlantModel, Converter
+from params import ExperimentParameters, DroneData
 p = ExperimentParameters()
+drone_data = DroneData()
 
 
 class OCP():
@@ -32,8 +33,8 @@ class OCP():
         ny_e = nx
 
         # weighting matrices
-        w_x = np.array([1e2, 1e2, 1e0, 1e0, 1e0, 1e0])
-        w_x_e = np.array([1e2, 1e2, 1e0, 1e0, 1e0, 1e0])
+        w_x = np.array([1e2, 1e2, 1e0, 1e0])
+        w_x_e = np.array([1e2, 1e2, 1e0, 1e0])
         Q = np.diag(w_x)
 
         w_u = np.array([1e-1]*nu)
@@ -112,9 +113,11 @@ class OCP():
 
 def main(circle: bool = False):
 
-    drone = DroneDynamics()
-    nx = drone.model.x.shape[0]
-    nu = drone.model.u.shape[0]
+    controllerModel = ControllerModel()
+    plantModel = PlantModel()
+    converter = Converter()
+    nx = controllerModel.model.x.shape[0]
+    nu = controllerModel.model.u.shape[0]
 
     # generate trajectory
     uref = np.zeros((p.N+p.N_horizon, nu))
@@ -123,21 +126,21 @@ def main(circle: bool = False):
         radius = 1
         xref = gen_circle_traj(nx, center=np.array([0, 0]), radius=radius)
     else:
-        length = 1
-        xref = gen_straight_traj(nx, [0, 0], length=length)
-        jerk = 6*length / p.T**3
-        uref[:, 0] = np.ones(p.N+p.N_horizon) * jerk
+        static_point = [1, 0.5]
+        xref = gen_static_point_traj(nx, static_point)
+        # hover thrust as reference
+        uref[:, 1] = np.ones(uref.shape[0]) * drone_data.GRAVITY
 
     # output arrays
     Xsim = np.zeros((p.N+1, nx))
     Xsim[0, :] = copy.deepcopy(xref[0, :])
-    U_opt = np.zeros((p.N, nu))
+    U_opt_plant = np.zeros((p.N, nu))
 
     # create OCP
     ocp = OCP()
-    ocp.create_ocp(drone.model, x0=xref[0, :])
+    ocp.create_ocp(controllerModel.model, x0=xref[0, :])
     ocp.create_ocp_solver()
-    ocp.create_simulator(drone.model)
+    ocp.create_simulator(plantModel.model)
 
     # Solve OCP
     for iteration in range(p.N):
@@ -148,18 +151,19 @@ def main(circle: bool = False):
         ocp.ocp_solver.set(p.N_horizon, 'yref',
                            xref[iteration + p.N_horizon, :])
 
-        U_opt[iteration, :] = ocp.ocp_solver.solve_for_x0(
+        U_opt_control = ocp.ocp_solver.solve_for_x0(
             x0_bar=Xsim[iteration, :])
+        U_opt_plant[iteration, :] = converter.convert(U_opt_control)
 
         print(
-            f'{iteration}: U_opt: {np.round(U_opt[iteration, :], 2)} X: {np.round(Xsim[iteration, :], 2)}')
+            f'{iteration}: U_opt: {np.round(U_opt_plant[iteration, :], 2)} X: {np.round(Xsim[iteration, :], 2)}')
 
         Xsim[iteration+1, :] = ocp.simulate_next_x(
-            Xsim[iteration, :], U_opt[iteration, :])
+            Xsim[iteration, :], U_opt_plant[iteration, :])
 
     # show results
     compare_reftraj_vs_sim(t=np.linspace(0, p.T, p.N+1),
-                           reftraj=xref[:p.N+1], simX=Xsim, u=U_opt)
+                           reftraj=xref[:p.N+1], simX=Xsim, u=U_opt_plant)
 
 
 # define main function for testing

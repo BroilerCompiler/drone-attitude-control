@@ -40,6 +40,14 @@ def gen_square_traj(nx, initial, length):
     return xref
 
 
+def gen_static_point_traj(nx, initial):
+    N = p.N_horizon+p.N+1
+    xref = np.zeros((N, nx))
+    xref[:, 0] = np.ones(N)*initial[0]
+    xref[:, 1] = np.ones(N)*initial[1]
+    return xref
+
+
 def gen_straight_traj(nx, initial, length):
     # TODO: generate docstrings
 
@@ -80,59 +88,43 @@ def gen_circle_traj(nx, center, radius) -> np.array:
 
 
 def compare_reftraj_vs_sim(t, reftraj, simX, u):
-    _, ax0 = plt.subplots(2, 2)
-    fig1, ax1 = plt.subplots(4, sharex=True)
+    _, ax0 = plt.subplots(2)
+    fig1, ax1 = plt.subplots(3, sharex=True)
     # z over x
     if simX is not None:
-        ax0[0, 0].plot(simX[:, 0], simX[:, 1], label='p_sim')
-        ax0[0, 1].plot(simX[:, 2], simX[:, 3], label='v_sim')
-        ax0[1, 0].plot(simX[:, 4], simX[:, 5], label='a_sim')
+        ax0[0].plot(simX[:, 0], simX[:, 1], label='p_sim')
+        ax0[1].plot(simX[:, 2], simX[:, 3], label='v_sim')
     if reftraj is not None:
-        ax0[0, 0].plot(reftraj[:, 0], reftraj[:, 1], label='p_ref')
-        ax0[0, 1].plot(reftraj[:, 2], reftraj[:, 3], label='v_ref')
-        ax0[1, 0].plot(reftraj[:, 4], reftraj[:, 5], label='a_ref')
-    if u is not None:
-        ax0[1, 1].plot(u[:, 0], u[:, 1], label='h')
+        ax0[0].plot(reftraj[:, 0], reftraj[:, 1], label='p_ref')
+        ax0[1].plot(reftraj[:, 2], reftraj[:, 3], label='v_ref')
 
     # component-wise
     if simX is not None:
         ax1[0].plot(t, simX[:, 0], label='p_sim_x')
         ax1[1].plot(t, simX[:, 2], label='v_sim_x')
-        ax1[2].plot(t, simX[:, 4], label='a_sim_x')
         ax1[0].plot(t, simX[:, 1], label='p_sim_z')
         ax1[1].plot(t, simX[:, 3], label='v_sim_z')
-        ax1[2].plot(t, simX[:, 5], label='a_sim_z')
     if reftraj is not None:
         ax1[0].plot(t, reftraj[:, 0], label='p_ref_x')
         ax1[1].plot(t, reftraj[:, 2], label='v_ref_x')
-        ax1[2].plot(t, reftraj[:, 4], label='a_ref_x')
         ax1[0].plot(t, reftraj[:, 1], label='p_ref_z')
         ax1[1].plot(t, reftraj[:, 3], label='v_ref_z')
-        ax1[2].plot(t, reftraj[:, 5], label='a_ref_z')
     if u is not None:
-        ax1[3].plot(t[:-1], u[:, 0], label='h_x')
-        ax1[3].plot(t[:-1], u[:, 1], label='h_z')
+        ax1[2].plot(t[:-1], u[:, 0], label='F_d')
+        ax1[2].plot(t[:-1], u[:, 1], label='$\\theta$')
     fig1.supxlabel('Seconds')
-    ax0[0, 0].legend()
-    ax0[0, 1].legend()
-    ax0[1, 0].legend()
-    ax0[1, 1].legend()
+    ax0[0].legend()
+    ax0[1].legend()
     ax1[0].legend()
     ax1[1].legend()
     ax1[2].legend()
-    ax1[3].legend()
-    ax0[0, 0].grid()
-    ax0[0, 1].grid()
-    ax0[1, 0].grid()
-    ax0[1, 1].grid()
+    ax0[0].grid()
+    ax0[1].grid()
     ax1[0].grid()
     ax1[1].grid()
     ax1[2].grid()
-    ax1[3].grid()
-    ax0[0, 0].axis('equal')
-    ax0[0, 1].axis('equal')
-    ax0[1, 0].axis('equal')
-    ax0[1, 1].axis('equal')
+    ax0[0].axis('equal')
+    ax0[1].axis('equal')
 
     plt.show()
 
@@ -145,12 +137,12 @@ if __name__ == '__main__':
     circle = gen_circle_traj(6, center, radius)
     # u
     omega = 2*np.pi/p.T
-    u_vec = np.zeros((p.N, 2))
+    uref = np.zeros((p.N, 2))
     for i in range(p.N):
-        u_vec[i, 0] = radius * ca.sin(omega*i/p.N*p.T)*(omega)**3
-        u_vec[i, 1] = - radius * ca.cos(omega*i/p.N*p.T)*(omega)**3
+        uref[i, 0] = radius * ca.sin(omega*i/p.N*p.T)*(omega)**3
+        uref[i, 1] = - radius * ca.cos(omega*i/p.N*p.T)*(omega)**3
     compare_reftraj_vs_sim(t=np.linspace(0, p.T, p.N+1),
-                           reftraj=circle[:p.N+1], simX=None, u=u_vec)
+                           reftraj=circle[:p.N+1], simX=None, u=uref)
 
     # plot straigt line traj
     length = 1

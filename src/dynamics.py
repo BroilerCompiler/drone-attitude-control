@@ -2,12 +2,13 @@ import casadi as ca
 from acados_template import AcadosModel
 import numpy as np
 from acados_template import AcadosSim, AcadosSimSolver
-from gen_trajectory import gen_circle_traj, gen_straight_traj, compare_reftraj_vs_sim
-from params import ExperimentParameters
+from gen_trajectory import gen_circle_traj, gen_static_point_traj, compare_reftraj_vs_sim
+from params import ExperimentParameters, DroneData
 p = ExperimentParameters()
+drone_data = DroneData()
 
 
-class DroneDynamics:
+class ControllerModel:
 
     def __init__(self):
         '''
@@ -17,42 +18,102 @@ class DroneDynamics:
         u is aliased as ũ. ũ is the jerk vector from which true control inputs
         to the plant (F_d and \\theta ) are computed later.
         '''
-        GRAVITY_WORLD_COORD = -9.81
-
         px = ca.SX.sym('px', 1)
         pz = ca.SX.sym('pz', 1)
 
         vx = ca.SX.sym('vx', 1)
         vz = ca.SX.sym('vz', 1)
 
-        a_omega_x = ca.SX.sym('a_omega_x', 1)
-        a_omega_z = ca.SX.sym('a_omega_z', 1)
-
-        hx = ca.SX.sym('hx', 1)
-        hz = ca.SX.sym('hz', 1)
-
-        ax = a_omega_x + p.dt*hz + 0
-        az = a_omega_z + p.dt*hx + GRAVITY_WORLD_COORD
+        Fx = ca.SX.sym('Fx', 1)
+        Fz = ca.SX.sym('Fz', 1)
 
         # define the dynamics
         f_expl = ca.vertcat(
             vx,
             vz,
-            ax,
-            az,
-            hx,
-            hz
+            1/drone_data.MASS * Fx + 0,  # ax
+            1/drone_data.MASS * Fz - drone_data.GRAVITY_ACC  # az
         )
 
         xdot = ca.SX.sym('xdot', f_expl.shape[0])
 
         self.model = AcadosModel()
-        self.model.name = 'drone_pointmass_model'
+        self.model.name = 'controllerModel'
         self.model.f_impl_expr = xdot - f_expl
         self.model.f_expl_expr = f_expl
-        self.model.x = ca.vertcat(*[px, pz, vx, vz, a_omega_x, a_omega_z])
+        self.model.x = ca.vertcat(*[px, pz, vx, vz])
         self.model.xdot = xdot
-        self.model.u = ca.vertcat(*[hx, hz])
+        self.model.u = ca.vertcat(*[Fx, Fz])
+
+
+class PlantModel:
+
+    def __init__(self):
+        '''
+        Generate acados model for the crazyflie dynamics in 2D.
+        Only x and z direction are considered -> only pitch angle (theta).
+
+        (F_d and \\theta ) are controlling the system.
+        '''
+        px = ca.SX.sym('px', 1)
+        pz = ca.SX.sym('pz', 1)
+
+        vx = ca.SX.sym('vx', 1)
+        vz = ca.SX.sym('vz', 1)
+
+        theta = ca.SX.sym('theta', 1)
+        Fd = ca.SX.sym('Fd', 1)
+
+        # define the dynamics
+        f_expl = ca.vertcat(
+            vx,
+            vz,
+            1/drone_data.MASS * Fd * ca.cos(theta) + 0,  # ax
+            1/drone_data.MASS * Fd *
+            ca.sin(theta) - drone_data.GRAVITY_ACC  # az
+        )
+
+        xdot = ca.SX.sym('xdot', f_expl.shape[0])
+
+        self.model = AcadosModel()
+        self.model.name = 'plantModel'
+        self.model.f_impl_expr = xdot - f_expl
+        self.model.f_expl_expr = f_expl
+        self.model.x = ca.vertcat(*[px, pz, vx, vz])
+        self.model.xdot = xdot
+        self.model.u = ca.vertcat(*[theta, Fd])
+
+
+class Converter:
+    def __init__(self):
+        pass
+
+    def convert(self, u_tilde):
+        """Converts from the controller model (u are Forces) 
+        to plant model (u are Thrust and pitch).
+        Takes single u aswell as vector of u
+
+        Args:
+            u_tilde (_type_): Force vector component-wise
+
+        Returns:
+            _type_: pitch, Thrust
+        """
+        # input is only single u
+        if len(u_tilde.shape) == 1:
+            F_x, F_z = u_tilde
+            theta = np.arctan2(F_x, F_z)
+            F_d = np.sqrt(F_x*F_x + F_z*F_z)
+            u = (theta, F_d)
+        # input is a vector of u
+        else:
+            u = np.zeros(u_tilde.shape)
+            for i in range(u_tilde.shape[0]):
+                F_x = u_tilde[i, 0]
+                F_z = u_tilde[i, 1]
+                u[i, 0] = np.arctan2(F_x, F_z)  # theta
+                u[i, 1] = np.sqrt(F_x*F_x + F_z*F_z)  # F_d
+        return u
 
 
 def simulate_dynamics(model, x0, u):
@@ -85,7 +146,6 @@ def simulate_dynamics(model, x0, u):
 
     integrator = AcadosSimSolver(sim, verbose=False)
 
-    # FIXME: integrator gives wrong results for circle trajectory. Maybe u is wrong. xref is correct
     nx = sim.model.x.shape[0]
     simX = np.ndarray((p.N+1, nx))
     simX[0, :] = x0
@@ -104,11 +164,12 @@ def test_drone_dynamics(circle: bool = False):
     simulate it forward (single shooting) using the model of the drone
     """
 
-    drone = DroneDynamics()
-    nx = drone.model.x.shape[0]
-    nu = drone.model.u.shape[0]
+    plantModel = PlantModel()
+    converter = Converter()
+    nx = plantModel.model.x.shape[0]
+    nu = plantModel.model.u.shape[0]
 
-    u_vec = np.zeros((p.N, nu))
+    uref_ctrl = np.zeros((p.N, nu))
 
     # Reference
     if circle:
@@ -116,17 +177,18 @@ def test_drone_dynamics(circle: bool = False):
         omega = 2*ca.pi/p.T
         traj = gen_circle_traj(nx, center=[0, 0], radius=radius)
         for i in range(p.N):
-            u_vec[i, 0] = radius * ca.sin(omega*i/p.N*p.T)*(omega)**3
-            u_vec[i, 1] = - radius * ca.cos(omega*i/p.N*p.T)*(omega)**3
+            uref_ctrl[i, 0] = radius * ca.sin(omega*i/p.N*p.T)*(omega)**3
+            uref_ctrl[i, 1] = - radius * ca.cos(omega*i/p.N*p.T)*(omega)**3
     else:
-        length = 1
-        traj = gen_straight_traj(nx, initial=[0, 0], length=length)
-        jerk = 6*length / p.T**3
-        u_vec[:, 0] = np.ones(p.N) * jerk
+        static_point = [1, 0.5]
+        traj = gen_static_point_traj(nx, static_point)
+        uref_ctrl[:, 1] = np.ones(uref_ctrl.shape[0]) * drone_data.GRAVITY
 
     # start exactly on the reference
+    # and simulate states over the whole trajectory using the plant model
     x0 = traj[0, :]
-    simX = simulate_dynamics(drone.model, x0, u_vec)
+    uref_plant = converter.convert(uref_ctrl)
+    simX = simulate_dynamics(plantModel.model, x0, uref_plant)
 
     # plot results
     print(f"Maximum values:")
@@ -138,14 +200,10 @@ def test_drone_dynamics(circle: bool = False):
         f"vx_ref: {abs(traj[:p.N+1, 2]).max()}, vx_sim: {abs(simX[:, 2]).max()}")
     print(
         f"vz_ref: {abs(traj[:p.N+1, 3]).max()}, vz_sim: {abs(simX[:, 3]).max()}")
-    print(
-        f"ax_ref: {abs(traj[:p.N+1, 4]).max()}, ax_sim: {abs(simX[:, 4]).max()}")
-    print(
-        f"az_ref: {abs(traj[:p.N+1, 5]).max()}, az_sim: {abs(simX[:, 5]).max()}")
     compare_reftraj_vs_sim(t=np.linspace(0, p.T, p.N+1),
-                           reftraj=traj[:p.N+1], simX=simX, u=u_vec)
+                           reftraj=traj[:p.N+1], simX=simX, u=uref_plant)
 
 
 # define main function for testing
 if __name__ == '__main__':
-    test_drone_dynamics(circle=True)
+    test_drone_dynamics(circle=False)

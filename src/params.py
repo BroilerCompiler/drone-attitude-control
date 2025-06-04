@@ -34,7 +34,7 @@ class DroneData:
             self.PWM2RPM_CONST, \
             self.MIN_PWM, \
             self.MAX_PWM = self._parse_urdf_parameters(self.URDF_PATH)
-        self.GRAVITY_ACC = 9.8
+        self.GRAVITY_ACC = 9.81
         self.RAD2DEG = 180 / np.pi
         self.DEG2RAD = np.pi / 180
         self.L_TETHER = 0.435  # [m]
