@@ -100,18 +100,18 @@ def compare_reftraj_vs_sim(t, reftraj, simX, u):
 
     # component-wise
     if simX is not None:
-        ax1[0].plot(t, simX[:, 0], label='p_sim_x')
-        ax1[1].plot(t, simX[:, 2], label='v_sim_x')
-        ax1[0].plot(t, simX[:, 1], label='p_sim_z')
-        ax1[1].plot(t, simX[:, 3], label='v_sim_z')
+        ax1[0].plot(t, simX[:, 0], label='$p^\\mathrm{sim}_\\mathrm{x}$')
+        ax1[1].plot(t, simX[:, 2], label='$v^\\mathrm{sim}_\\mathrm{x}$')
+        ax1[0].plot(t, simX[:, 1], label='$p^\\mathrm{sim}_\\mathrm{z}$')
+        ax1[1].plot(t, simX[:, 3], label='$v^\\mathrm{sim}_\\mathrm{z}$')
     if reftraj is not None:
-        ax1[0].plot(t, reftraj[:, 0], label='p_ref_x')
-        ax1[1].plot(t, reftraj[:, 2], label='v_ref_x')
-        ax1[0].plot(t, reftraj[:, 1], label='p_ref_z')
-        ax1[1].plot(t, reftraj[:, 3], label='v_ref_z')
+        ax1[0].plot(t, reftraj[:, 0], label='$p^\\mathrm{ref}_\\mathrm{x}$')
+        ax1[1].plot(t, reftraj[:, 2], label='$v^\\mathrm{ref}_\\mathrm{x}$')
+        ax1[0].plot(t, reftraj[:, 1], label='$p^\\mathrm{ref}_\\mathrm{z}$')
+        ax1[1].plot(t, reftraj[:, 3], label='$v^\\mathrm{ref}_\\mathrm{z}$')
     if u is not None:
-        ax1[2].plot(t[:-1], u[:, 0], label='F_d')
-        ax1[2].plot(t[:-1], u[:, 1], label='$\\theta$')
+        ax1[2].plot(t[:-1], u[:, 0], label='$\\theta$')
+        ax1[2].plot(t[:-1], u[:, 1], label='$F_\\mathrm{d}$')
     fig1.supxlabel('Seconds')
     ax0[0].legend()
     ax0[1].legend()
