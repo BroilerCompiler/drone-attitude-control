@@ -1,12 +1,12 @@
-import casadi as ca
-from acados_template import AcadosModel
 import numpy as np
-from acados_template import AcadosSim, AcadosSimSolver
+import casadi as ca
+from acados_template import AcadosModel, AcadosSim, AcadosSimSolver
 from gen_trajectory import gen_circle_traj, gen_static_point_traj
 from store_results import create_plots
+from plant import PlantModel
 from params import ExperimentParameters, DroneData
 p = ExperimentParameters()
-drone_data = DroneData()
+dd = DroneData()
 
 
 class ControllerModel:
@@ -25,15 +25,20 @@ class ControllerModel:
         vx = ca.SX.sym('vx', 1)
         vz = ca.SX.sym('vz', 1)
 
-        Fx = ca.SX.sym('Fx', 1)
-        Fz = ca.SX.sym('Fz', 1)
+        ax = ca.SX.sym('ax', 1)
+        az = ca.SX.sym('az', 1)
+
+        hx = ca.SX.sym('hx', 1)
+        hz = ca.SX.sym('hz', 1)
 
         # define the dynamics
         f_expl = ca.vertcat(
             vx,
             vz,
-            1/drone_data.MASS * Fx + 0,  # ax
-            1/drone_data.MASS * Fz - drone_data.GRAVITY_ACC  # az
+            ax,
+            az,
+            hx,
+            hz - dd.GRAVITY_ACC / p.dt
         )
 
         xdot = ca.SX.sym('xdot', f_expl.shape[0])
@@ -42,47 +47,9 @@ class ControllerModel:
         self.model.name = 'controllerModel'
         self.model.f_impl_expr = xdot - f_expl
         self.model.f_expl_expr = f_expl
-        self.model.x = ca.vertcat(*[px, pz, vx, vz])
+        self.model.x = ca.vertcat(*[px, pz, vx, vz, ax, az])
         self.model.xdot = xdot
-        self.model.u = ca.vertcat(*[Fx, Fz])
-
-
-class PlantModel:
-
-    def __init__(self):
-        '''
-        Generate acados model for the crazyflie dynamics in 2D.
-        Only x and z direction are considered -> only pitch angle (theta).
-
-        (F_d and \\theta ) are controlling the system.
-        '''
-        px = ca.SX.sym('px', 1)
-        pz = ca.SX.sym('pz', 1)
-
-        vx = ca.SX.sym('vx', 1)
-        vz = ca.SX.sym('vz', 1)
-
-        theta = ca.SX.sym('theta', 1)
-        Fd = ca.SX.sym('Fd', 1)
-
-        # define the dynamics
-        f_expl = ca.vertcat(
-            vx,
-            vz,
-            1/drone_data.MASS * Fd * ca.sin(theta) + 0,  # ax
-            1/drone_data.MASS * Fd *
-            ca.cos(theta) - drone_data.GRAVITY_ACC  # az
-        )
-
-        xdot = ca.SX.sym('xdot', f_expl.shape[0])
-
-        self.model = AcadosModel()
-        self.model.name = 'plantModel'
-        self.model.f_impl_expr = xdot - f_expl
-        self.model.f_expl_expr = f_expl
-        self.model.x = ca.vertcat(*[px, pz, vx, vz])
-        self.model.xdot = xdot
-        self.model.u = ca.vertcat(*[theta, Fd])
+        self.model.u = ca.vertcat(*[hx, hz])
 
 
 class Converter:
@@ -181,11 +148,11 @@ def test_drone_dynamics(circle: bool = False):
             # acceleration ref
             uref_ctrl[i, 0] = - radius * ca.cos(omega*i/p.N*p.T)*(omega/p.T)**2
             uref_ctrl[i, 1] = - radius * \
-                ca.sin(omega*i/p.N*p.T)*(omega/p.T)**2 + drone_data.GRAVITY
+                ca.sin(omega*i/p.N*p.T)*(omega/p.T)**2 + dd.GRAVITY
     else:
         static_point = [1, 0.5]
         traj = gen_static_point_traj(nx, static_point)
-        uref_ctrl[:, 1] = np.ones(uref_ctrl.shape[0]) * drone_data.GRAVITY
+        uref_ctrl[:, 1] = np.ones(uref_ctrl.shape[0]) * dd.GRAVITY
 
     # start exactly on the reference
     # and simulate states over the whole trajectory using the plant model

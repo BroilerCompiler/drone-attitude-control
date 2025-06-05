@@ -3,7 +3,8 @@ import copy
 from gen_trajectory import gen_circle_traj, gen_static_point_traj
 from store_results import create_plots
 from acados_template import AcadosOcp, AcadosOcpSolver, AcadosSim, AcadosSimSolver
-from dynamics import ControllerModel, PlantModel, Converter
+from plant import PlantModel
+from dynamics import ControllerModel, Converter
 from params import ExperimentParameters, DroneData
 p = ExperimentParameters()
 dd = DroneData()
@@ -64,7 +65,7 @@ class OCP():
             [dd.min_F, dd.min_F])
         self.ocp.constraints.ubu = np.array(
             [dd.max_F, dd.max_F])
-        self.ocp.constraints.idxbu = np.array([0, 1])  # TODO: set_lim
+        self.ocp.constraints.idxbu = np.array([0, 1])
 
         # set constraints
         # on x

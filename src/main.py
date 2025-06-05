@@ -1,8 +1,7 @@
 # define main function for testing
 
-def fly_circle_traj():
-    pass
-
-
 if __name__ == '__main__':
-    fly_circle_traj()
+    # fly circle with force model
+    # fly circle with jerk model
+    # calculate closed loop cost
+    pass

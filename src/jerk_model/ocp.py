@@ -1,0 +1,168 @@
+import numpy as np
+import copy
+from gen_trajectory import gen_circle_traj, gen_static_point_traj
+from store_results import create_plots
+from acados_template import AcadosOcp, AcadosOcpSolver, AcadosSim, AcadosSimSolver
+from plant import PlantModel
+from dynamics import ControllerModel, Converter
+from params import ExperimentParameters, DroneData
+p = ExperimentParameters()
+dd = DroneData()
+
+
+class OCP():
+    def __init__(self, ocp_name='acados_ocp'):
+        self.ocp_name = ocp_name
+        self.ocp = None
+        self.ocp_solver = None
+        self.sim = None
+        self.integrator = None  # sim_solver
+
+    def create_ocp(self, model, x0):
+
+        self.ocp = AcadosOcp()
+        self.ocp.code_export_directory = 'c_generated_code_' + self.ocp_name
+        self.ocp.model = model
+
+        # set cost module
+        self.ocp.cost.cost_type = 'LINEAR_LS'
+        self.ocp.cost.cost_type_e = 'LINEAR_LS'
+
+        # get dimensions
+        nx = self.ocp.model.x.size()[0]
+        nu = self.ocp.model.u.size()[0]
+        ny = nx + nu
+        ny_e = nx
+
+        # weighting matrices
+        w_x = np.array([1e2, 1e2, 1e0, 1e0, 1e0, 1e0])
+        w_x_e = np.array([1e2, 1e2, 1e0, 1e0, 1e0, 1e0])
+        Q = np.diag(w_x)
+
+        w_u = np.array([1e-1]*nu)
+        R = np.diag(w_u)
+
+        self.ocp.cost.W = np.block(
+            [[Q, np.zeros((nx, nu))], [np.zeros((nu, nx)), R]])
+        self.ocp.cost.W_e = np.diag(w_x_e)
+
+        # selection matrices
+        self.ocp.cost.Vx = np.zeros((ny, nx))
+        self.ocp.cost.Vx[:nx, :] = np.eye(nx)
+        self.ocp.cost.Vu = np.zeros((ny, nu))
+        self.ocp.cost.Vu[nx:, :] = np.eye(nu)
+
+        self.ocp.cost.Vx_e = np.eye(nx)
+
+        self.ocp.cost.yref = np.zeros((ny, ))
+        self.ocp.cost.yref_e = np.zeros((ny_e, ))
+
+        # set constraints
+        # on u
+        self.ocp.constraints.constr_type = 'BGH'
+        self.ocp.constraints.constr_type_e = 'BGH'
+        self.ocp.constraints.lbu = np.array(
+            [dd.min_jerk, dd.min_jerk])
+        self.ocp.constraints.ubu = np.array(
+            [dd.max_jerk, dd.max_jerk])
+        self.ocp.constraints.idxbu = np.array([0, 1])
+
+        # set constraints
+        # on x
+        self.ocp.constraints.lbx = np.array(
+            [dd.min_p_x, dd.min_p_z, dd.min_v_x, dd.min_v_z, dd.min_a_x, dd.min_a_z])
+        self.ocp.constraints.ubx = np.array(
+            [dd.max_p_x, dd.max_p_z, dd.max_v_x, dd.max_v_z, dd.max_a_x, dd.max_a_z])
+        self.ocp.constraints.idxbx = np.array([0, 1, 2, 3, 4, 5])
+
+        self.ocp.constraints.x0 = x0
+
+    def create_ocp_solver(self):
+
+        # Solver options
+        self.ocp.solver_options.qp_solver = 'PARTIAL_CONDENSING_HPIPM'
+        self.ocp.solver_options.hessian_approx = 'GAUSS_NEWTON'
+        self.ocp.solver_options.integrator_type = 'IRK'
+        self.ocp.solver_options.nlp_solver_type = 'SQP'
+        self.ocp.solver_options.print_level = 0
+
+        self.ocp.solver_options.N_horizon = p.N_horizon
+        self.ocp.solver_options.tf = p.dt*p.N_horizon
+
+        self.ocp_solver = AcadosOcpSolver(
+            self.ocp, json_file=self.ocp_name+'.json', verbose=False)
+
+    def create_simulator(self, model):
+
+        self.sim = AcadosSim()
+        self.sim.model = model
+        self.sim.solver_options.T = p.dt
+        self.integrator = AcadosSimSolver(self.sim, verbose=False)
+
+    def simulate_next_x(self, x0, u):
+
+        self.integrator.set("u", u)
+        self.integrator.set("x", x0)
+        self.integrator.solve()
+
+        return self.integrator.get("x")
+
+
+def main(circle: bool = False):
+
+    controllerModel = ControllerModel()
+    plantModel = PlantModel()
+    converter = Converter()
+    nx = controllerModel.model.x.shape[0]
+    nu = controllerModel.model.u.shape[0]
+
+    # generate trajectory
+    # with hover thrust as reference
+    uref = np.zeros((p.N+p.N_horizon, nu))
+    uref[:, 1] = np.ones(uref.shape[0]) * dd.GRAVITY
+
+    if circle:
+        radius = 1
+        xref = gen_circle_traj(nx, center=np.array([0, 0]), radius=radius)
+    else:
+        static_point = [1, 0.5]
+        xref = gen_static_point_traj(nx, static_point)
+
+    # output arrays
+    Xsim = np.zeros((p.N+1, nx))
+    Xsim[0, :] = copy.deepcopy(xref[0, :])
+    Xsim[0, :] = np.zeros(Xsim.shape[1])
+    U_opt_plant = np.zeros((p.N, nu))
+
+    # create OCP
+    ocp = OCP()
+    ocp.create_ocp(controllerModel.model, x0=xref[0, :])
+    ocp.create_ocp_solver()
+    ocp.create_simulator(plantModel.model)
+
+    # Solve OCP
+    for iteration in range(p.N):
+        # Set up OCP
+        for k in range(p.N_horizon):
+            ocp.ocp_solver.set(k, 'yref', np.hstack(
+                (xref[iteration + k, :], uref[iteration + k, :])))
+        ocp.ocp_solver.set(p.N_horizon, 'yref',
+                           xref[iteration + p.N_horizon, :])
+
+        U_opt_control = ocp.ocp_solver.solve_for_x0(
+            x0_bar=Xsim[iteration, :])
+        U_opt_plant[iteration, :] = converter.convert(U_opt_control)
+
+        print(
+            f'{iteration}: U_opt [theta F_d]: {np.round(U_opt_plant[iteration, :], 2)} X: {np.round(Xsim[iteration, :], 2)}')
+
+        Xsim[iteration+1, :] = ocp.simulate_next_x(
+            Xsim[iteration, :], U_opt_plant[iteration, :])
+
+    # show results
+    create_plots(xref, Xsim, U_opt_plant, store_plots=False)
+
+
+# define main function for testing
+if __name__ == '__main__':
+    main(circle=True)
