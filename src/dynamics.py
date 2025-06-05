@@ -2,7 +2,8 @@ import casadi as ca
 from acados_template import AcadosModel
 import numpy as np
 from acados_template import AcadosSim, AcadosSimSolver
-from gen_trajectory import gen_circle_traj, gen_static_point_traj, compare_reftraj_vs_sim
+from gen_trajectory import gen_circle_traj, gen_static_point_traj
+from store_results import create_plots
 from params import ExperimentParameters, DroneData
 p = ExperimentParameters()
 drone_data = DroneData()
@@ -178,9 +179,9 @@ def test_drone_dynamics(circle: bool = False):
         traj = gen_circle_traj(nx, center=[0, 0], radius=radius)
         for i in range(p.N):
             # acceleration ref
-            uref_ctrl[i, 0] = - radius * ca.cos(omega*i/p.N*p.T)*(omega)**2
+            uref_ctrl[i, 0] = - radius * ca.cos(omega*i/p.N*p.T)*(omega/p.T)**2
             uref_ctrl[i, 1] = - radius * \
-                ca.sin(omega*i/p.N*p.T)*(omega)**2 + drone_data.GRAVITY
+                ca.sin(omega*i/p.N*p.T)*(omega/p.T)**2 + drone_data.GRAVITY
     else:
         static_point = [1, 0.5]
         traj = gen_static_point_traj(nx, static_point)
@@ -189,7 +190,7 @@ def test_drone_dynamics(circle: bool = False):
     # start exactly on the reference
     # and simulate states over the whole trajectory using the plant model
     x0 = traj[0, :]
-    uref_plant = np.load('u_opt_plant_circle.npy')
+    uref_plant = converter.convert(uref_ctrl)
     simX = simulate_dynamics(plantModel.model, x0, uref_plant)
 
     # plot results
@@ -202,8 +203,7 @@ def test_drone_dynamics(circle: bool = False):
         f"vx_ref: {abs(traj[:p.N+1, 2]).max()}, vx_sim: {abs(simX[:, 2]).max()}")
     print(
         f"vz_ref: {abs(traj[:p.N+1, 3]).max()}, vz_sim: {abs(simX[:, 3]).max()}")
-    compare_reftraj_vs_sim(t=np.linspace(0, p.T, p.N+1),
-                           reftraj=traj[:p.N+1], simX=simX, u=uref_plant)
+    create_plots(traj, simX, uref_plant, store_plots=False)
 
 
 # define main function for testing

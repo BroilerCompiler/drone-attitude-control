@@ -1,8 +1,6 @@
 import numpy as np
 import casadi as ca
-from matplotlib import pyplot as plt
-from params import DroneData, ExperimentParameters
-dd = DroneData()
+from params import ExperimentParameters
 p = ExperimentParameters()
 
 
@@ -84,59 +82,9 @@ def gen_circle_traj(nx, center, radius) -> np.array:
     return xref
 
 
-def compare_reftraj_vs_sim(t, reftraj, simX, u):
-    _, ax0 = plt.subplots(2)
-    fig1, ax1 = plt.subplots(4, sharex=True)
-    # z over x
-    if simX is not None:
-        ax0[0].plot(simX[:, 0], simX[:, 1], label='$p^\\mathrm{sim}$')
-        ax0[1].plot(simX[:, 2], simX[:, 3],
-                    label='$v^\\mathrm{sim}$', marker='.')
-    if reftraj is not None:
-        ax0[0].plot(reftraj[:, 0], reftraj[:, 1],
-                    label='$p^\\mathrm{ref}$', linestyle='--', color='tab:orange', alpha=0.7)
-        ax0[1].plot(reftraj[:, 2], reftraj[:, 3],
-                    label='$v^\\mathrm{ref}$', linestyle='--', color='tab:orange', alpha=0.7)
-        # plt.scatter(reftraj[0, 0], reftraj[0, 1],
-        #             label='Starting point', color='green')
-
-    # component-wise
-    if simX is not None:
-        ax1[0].plot(t, simX[:, 0], label='$p^\\mathrm{sim}_\\mathrm{x}$')
-        ax1[1].plot(t, simX[:, 2], label='$v^\\mathrm{sim}_\\mathrm{x}$')
-        ax1[0].plot(t, simX[:, 1], label='$p^\\mathrm{sim}_\\mathrm{z}$')
-        ax1[1].plot(t, simX[:, 3], label='$v^\\mathrm{sim}_\\mathrm{z}$')
-        # ax1[0].hlines(y=[dd.min_p_x, dd.max_p_x], linewidth=1,
-        #               linestyles='--', color='gray')
-        # ax1[1].hlines(y=[0., 0.4], linewidth=1, linestyles='--', color='gray')
-    if reftraj is not None:
-        ax1[0].plot(t, reftraj[:, 0], label='$p^\\mathrm{ref}_\\mathrm{x}$')
-        ax1[1].plot(t, reftraj[:, 2], label='$v^\\mathrm{ref}_\\mathrm{x}$')
-        ax1[0].plot(t, reftraj[:, 1], label='$p^\\mathrm{ref}_\\mathrm{z}$')
-        ax1[1].plot(t, reftraj[:, 3], label='$v^\\mathrm{ref}_\\mathrm{z}$')
-    if u is not None:
-        ax1[2].plot(t[:-1], u[:, 0], label='$\\theta$')
-        ax1[3].plot(t[:-1], u[:, 1], label='$F_\\mathrm{d}$')  # ylabel
-    fig1.supxlabel('Time (s)')
-    ax0[0].legend()
-    ax0[1].legend()
-    ax1[0].legend()  # labels outside of the plot
-    ax1[1].legend()
-    ax1[2].legend()
-    ax1[3].legend()
-    ax0[0].grid()
-    ax0[1].grid()
-    ax1[0].grid()
-    ax1[1].grid()
-    ax1[2].grid()
-    ax0[0].axis('equal')
-    ax0[1].axis('equal')
-
-    plt.show()
-
-
 # define main function for testing
 if __name__ == '__main__':
+    from store_results import create_plots
     # plot circle traj
     radius = 1
     center = np.array([0, 0])
@@ -147,8 +95,7 @@ if __name__ == '__main__':
     for i in range(p.N):
         uref[i, 0] = radius * ca.sin(omega*i/p.N*p.T)*(omega)**3
         uref[i, 1] = - radius * ca.cos(omega*i/p.N*p.T)*(omega)**3
-    compare_reftraj_vs_sim(t=np.linspace(0, p.T, p.N+1),
-                           reftraj=circle[:p.N+1], simX=None, u=uref)
+    create_plots(circle, None, uref, store_plots=False)
 
     # plot straigt line traj
     length = 1
@@ -157,5 +104,4 @@ if __name__ == '__main__':
     jerk = 6*length / p.T**3
     u_vec2 = np.zeros((p.N, 2))
     u_vec2[:, 0] = np.ones(p.N) * jerk
-    compare_reftraj_vs_sim(t=np.linspace(0, p.T, p.N+1),
-                           reftraj=straight[:p.N+1], simX=None, u=u_vec2)
+    create_plots(straight, None, u_vec2, store_plots=False)

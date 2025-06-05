@@ -49,10 +49,10 @@ class DroneData:
         self.max_p_x = 2
         self.min_p_z = -2
         self.max_p_z = 2
-        self.min_v_x = -2
-        self.max_v_x = 2
-        self.min_v_z = -2
-        self.max_v_z = 2
+        self.min_v_x = -1
+        self.max_v_x = 1
+        self.min_v_z = -1
+        self.max_v_z = 1
         self.HOVER_RPM = np.sqrt(self.GRAVITY / (4 * self.KF))
         self.MAX_RPM = np.sqrt(
             (self.THRUST2WEIGHT_RATIO * self.GRAVITY) / (4 * self.KF))

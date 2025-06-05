@@ -1,6 +1,7 @@
 import numpy as np
 import copy
-from gen_trajectory import gen_circle_traj, gen_static_point_traj, compare_reftraj_vs_sim
+from gen_trajectory import gen_circle_traj, gen_static_point_traj
+from store_results import create_plots
 from acados_template import AcadosOcp, AcadosOcpSolver, AcadosSim, AcadosSimSolver
 from dynamics import ControllerModel, PlantModel, Converter
 from params import ExperimentParameters, DroneData
@@ -63,7 +64,7 @@ class OCP():
             [dd.min_F, dd.min_F])
         self.ocp.constraints.ubu = np.array(
             [dd.max_F, dd.max_F])
-        self.ocp.constraints.idxbu = np.array([0, 1])
+        self.ocp.constraints.idxbu = np.array([0, 1])  # TODO: set_lim
 
         # set constraints
         # on x
@@ -161,8 +162,7 @@ def main(circle: bool = False):
             Xsim[iteration, :], U_opt_plant[iteration, :])
 
     # show results
-    compare_reftraj_vs_sim(t=np.linspace(0, p.T, p.N+1),
-                           reftraj=xref[:p.N+1], simX=Xsim, u=U_opt_plant)
+    create_plots(xref, Xsim, U_opt_plant, store_plots=False)
 
 
 # define main function for testing
