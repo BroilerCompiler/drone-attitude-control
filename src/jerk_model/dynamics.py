@@ -1,7 +1,7 @@
 import numpy as np
 import casadi as ca
 from acados_template import AcadosModel, AcadosSim, AcadosSimSolver
-from gen_trajectory import gen_circle_traj, gen_static_point_traj
+from jerk_model.gen_trajectory import gen_circle_traj, gen_straight_traj, gen_circle_u, gen_straight_u
 from store_results import create_plots
 from plant import PlantModel
 from params import ExperimentParameters, DroneData
@@ -35,16 +35,16 @@ class ControllerModel:
         f_expl = ca.vertcat(
             vx,
             vz,
-            ax,
-            az,
+            ax + 0,
+            az - dd.GRAVITY_ACC,
             hx,
-            hz - dd.GRAVITY_ACC / p.dt
+            hz
         )
 
         xdot = ca.SX.sym('xdot', f_expl.shape[0])
 
         self.model = AcadosModel()
-        self.model.name = 'controllerModel'
+        self.model.name = 'controllerModel_jerk'
         self.model.f_impl_expr = xdot - f_expl
         self.model.f_expl_expr = f_expl
         self.model.x = ca.vertcat(*[px, pz, vx, vz, ax, az])
@@ -57,9 +57,11 @@ class Converter:
         pass
 
     def convert(self, u_tilde):
-        """Converts from the controller model (u are Forces) 
+        """Converts from the controller model (u_tilde is jerk) 
         to plant model (u are Thrust and pitch).
-        Takes single u aswell as vector of u
+        Takes single u aswell as vector of u.
+        Returns more controls than it took in, because the input is oversampled and 
+        at every sample point the acceleration is calculated (grows linearly at constant jerk)
 
         Args:
             u_tilde (_type_): Force vector component-wise
@@ -69,24 +71,36 @@ class Converter:
         """
         # input is only single u
         if len(u_tilde.shape) == 1:
-            F_x, F_z = u_tilde
-            theta = np.arctan2(F_x, F_z)
-            F_d = np.sqrt(F_x*F_x + F_z*F_z)
-            u = (theta, F_d)
+            h_x, h_z = u_tilde
+            u = np.zeros((p.ctrls_per_sample, u_tilde.shape[0]))
+
+            for j in range(p.ctrls_per_sample):
+                F_x = 1/dd.MASS * (h_x * j*p.dt_converter)
+                F_z = 1/dd.MASS * (h_z * j*p.dt_converter - dd.GRAVITY_ACC)
+                theta = np.arctan2(F_x, F_z)
+                F_d = np.sqrt(F_x*F_x + F_z*F_z)
+                u[j, 0] = theta
+                u[j, 1] = F_d
         # input is a vector of u
         else:
             u = np.zeros(u_tilde.shape)
+            u = np.concatenate([u]*p.ctrls_per_sample)
             for i in range(u_tilde.shape[0]):
-                F_x = u_tilde[i, 0]
-                F_z = u_tilde[i, 1]
-                u[i, 0] = np.arctan2(F_x, F_z)  # theta
-                u[i, 1] = np.sqrt(F_x*F_x + F_z*F_z)  # F_d
+                for j in range(p.ctrls_per_sample):
+                    h_x = u_tilde[i, 0]
+                    h_z = u_tilde[i, 1]
+                    F_x = dd.MASS * (h_x * j*p.dt_converter)
+                    F_z = dd.MASS * (h_z * j*p.dt_converter - dd.GRAVITY_ACC)
+                    theta = np.arctan2(F_x, F_z)
+                    F_d = np.sqrt(F_x*F_x + F_z*F_z)
+                    u[p.ctrls_per_sample*i + j, 0] = theta
+                    u[p.ctrls_per_sample*i + j, 1] = F_d
         return u
 
 
 def simulate_dynamics(model, x0, u):
     '''
-    Simulate the dynamics of the crazyflie
+    Simulate the dynamics of the crazyflie using the plant model
 
     Parameters
     ----------
@@ -115,14 +129,11 @@ def simulate_dynamics(model, x0, u):
     integrator = AcadosSimSolver(sim, verbose=False)
 
     nx = sim.model.x.shape[0]
-    simX = np.ndarray((p.N+1, nx))
+    simX = np.ndarray((p.N*p.ctrls_per_sample+1, nx))
     simX[0, :] = x0
 
-    for i in range(p.N):
-
-        # Note that xdot is only used if an IRK integrator is used
-        simX[i+1,
-             :] = integrator.simulate(x=simX[i, :], u=u[i])
+    for i in range(p.N*p.ctrls_per_sample):
+        simX[i+1, :] = integrator.simulate(x=simX[i, :], u=u[i])
 
     return simX
 
@@ -133,30 +144,23 @@ def test_drone_dynamics(circle: bool = False):
     """
 
     plantModel = PlantModel()
+    controllerModel = ControllerModel()
     converter = Converter()
-    nx = plantModel.model.x.shape[0]
-    nu = plantModel.model.u.shape[0]
+    nx = controllerModel.model.x.shape[0]
+    nu = controllerModel.model.u.shape[0]
 
-    uref_ctrl = np.zeros((p.N, nu))
-
-    # Reference
+    # Reference for u
     if circle:
         radius = 1
-        omega = 2*ca.pi/p.T
         traj = gen_circle_traj(nx, center=[0, 0], radius=radius)
-        for i in range(p.N):
-            # acceleration ref
-            uref_ctrl[i, 0] = - radius * ca.cos(omega*i/p.N*p.T)*(omega/p.T)**2
-            uref_ctrl[i, 1] = - radius * \
-                ca.sin(omega*i/p.N*p.T)*(omega/p.T)**2 + dd.GRAVITY
+        uref_ctrl = gen_circle_u(nu, radius)
     else:
-        static_point = [1, 0.5]
-        traj = gen_static_point_traj(nx, static_point)
-        uref_ctrl[:, 1] = np.ones(uref_ctrl.shape[0]) * dd.GRAVITY
+        length = 1
+        traj = gen_straight_traj(nx, initial=[0, 0], length=length)
+        uref_ctrl = gen_straight_u(nu, length)
 
-    # start exactly on the reference
-    # and simulate states over the whole trajectory using the plant model
-    x0 = traj[0, :]
+    # simulate states over the whole trajectory using the plant model
+    x0 = traj[0, :4]
     uref_plant = converter.convert(uref_ctrl)
     simX = simulate_dynamics(plantModel.model, x0, uref_plant)
 
@@ -175,4 +179,4 @@ def test_drone_dynamics(circle: bool = False):
 
 # define main function for testing
 if __name__ == '__main__':
-    test_drone_dynamics(circle=True)
+    test_drone_dynamics(circle=False)

@@ -115,6 +115,7 @@ class ExperimentParameters:
         self.T = 10
         self.dt = 1/50  # dt of the MPC
         self.dt_converter = 1/200  # lower level can be faster -> better performance
+        self.ctrls_per_sample = int(self.dt / self.dt_converter)
         self.N = int(self.T/self.dt)
         self.N_horizon = 30
 

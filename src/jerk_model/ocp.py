@@ -1,6 +1,6 @@
 import numpy as np
 import copy
-from gen_trajectory import gen_circle_traj, gen_static_point_traj
+from jerk_model.gen_trajectory import gen_circle_traj, gen_static_point_traj
 from store_results import create_plots
 from acados_template import AcadosOcp, AcadosOcpSolver, AcadosSim, AcadosSimSolver
 from plant import PlantModel
@@ -130,9 +130,9 @@ def main(circle: bool = False):
 
     # output arrays
     Xsim = np.zeros((p.N+1, nx))
-    Xsim[0, :] = copy.deepcopy(xref[0, :])
     Xsim[0, :] = np.zeros(Xsim.shape[1])
-    U_opt_plant = np.zeros((p.N, nu))
+    U_opt_ctrl = np.zeros((p.N, nu))
+    U_opt_plant = np.concatenate([U_opt_ctrl]*p.ctrls_per_sample)
 
     # create OCP
     ocp = OCP()
@@ -141,23 +141,22 @@ def main(circle: bool = False):
     ocp.create_simulator(plantModel.model)
 
     # Solve OCP
-    for iteration in range(p.N):
+    for iter in range(p.N):
         # Set up OCP
         for k in range(p.N_horizon):
             ocp.ocp_solver.set(k, 'yref', np.hstack(
-                (xref[iteration + k, :], uref[iteration + k, :])))
-        ocp.ocp_solver.set(p.N_horizon, 'yref',
-                           xref[iteration + p.N_horizon, :])
+                (xref[iter + k, :], uref[iter + k, :])))
+        ocp.ocp_solver.set(p.N_horizon, 'yref', xref[iter + p.N_horizon, :])
 
-        U_opt_control = ocp.ocp_solver.solve_for_x0(
-            x0_bar=Xsim[iteration, :])
-        U_opt_plant[iteration, :] = converter.convert(U_opt_control)
+        # Solve
+        U_opt_ctrl[iter, :] = ocp.ocp_solver.solve_for_x0(x0_bar=Xsim[iter, :])
 
         print(
-            f'{iteration}: U_opt [theta F_d]: {np.round(U_opt_plant[iteration, :], 2)} X: {np.round(Xsim[iteration, :], 2)}')
+            f'{iter}: U_opt [h_x h_z]: {np.round(U_opt_ctrl[iter, :], 2)} X: {np.round(Xsim[iter, :], 2)}')
 
-        Xsim[iteration+1, :] = ocp.simulate_next_x(
-            Xsim[iteration, :], U_opt_plant[iteration, :])
+        # Simulate next state
+        Xsim[iter+1, :] = ocp.simulate_next_x(
+            Xsim[iter, :], U_opt_ctrl[iter, :])
 
     # show results
     create_plots(xref, Xsim, U_opt_plant, store_plots=False)

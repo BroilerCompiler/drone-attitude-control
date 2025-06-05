@@ -1,7 +1,7 @@
 import numpy as np
 import casadi as ca
 from acados_template import AcadosModel, AcadosSim, AcadosSimSolver
-from gen_trajectory import gen_circle_traj, gen_static_point_traj
+from force_model.gen_trajectory import gen_circle_traj, gen_static_point_traj
 from store_results import create_plots
 from plant import PlantModel
 from params import ExperimentParameters, DroneData
@@ -39,7 +39,7 @@ class ControllerModel:
         xdot = ca.SX.sym('xdot', f_expl.shape[0])
 
         self.model = AcadosModel()
-        self.model.name = 'controllerModel'
+        self.model.name = 'controllerModel_force'
         self.model.f_impl_expr = xdot - f_expl
         self.model.f_expl_expr = f_expl
         self.model.x = ca.vertcat(*[px, pz, vx, vz])

@@ -1,7 +1,7 @@
 from datetime import datetime
 import matplotlib.pyplot as plt
 import numpy as np
-from gen_trajectory import gen_circle_traj
+from jerk_model.gen_trajectory import gen_circle_traj
 from acados_template.plot_utils import latexify_plot
 from params import DroneData, ExperimentParameters
 dd = DroneData()

@@ -1,6 +1,6 @@
 import numpy as np
 import copy
-from gen_trajectory import gen_circle_traj, gen_static_point_traj
+from force_model.gen_trajectory import gen_circle_traj, gen_static_point_traj
 from store_results import create_plots
 from acados_template import AcadosOcp, AcadosOcpSolver, AcadosSim, AcadosSimSolver
 from plant import PlantModel
