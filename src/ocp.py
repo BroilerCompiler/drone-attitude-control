@@ -5,7 +5,7 @@ from acados_template import AcadosOcp, AcadosOcpSolver, AcadosSim, AcadosSimSolv
 from dynamics import ControllerModel, PlantModel, Converter
 from params import ExperimentParameters, DroneData
 p = ExperimentParameters()
-drone_data = DroneData()
+dd = DroneData()
 
 
 class OCP():
@@ -55,25 +55,23 @@ class OCP():
         self.ocp.cost.yref = np.zeros((ny, ))
         self.ocp.cost.yref_e = np.zeros((ny_e, ))
 
-        # # set constraints
-        # # on u
-        # max_jerk = 0.5
-        # self.ocp.constraints.constr_type = 'BGH'
-        # self.ocp.constraints.constr_type_e = 'BGH'
-        # self.ocp.constraints.lbu = np.array([-max_jerk, -max_jerk])
-        # self.ocp.constraints.ubu = np.array([max_jerk, max_jerk])
-        # self.ocp.constraints.idxbu = np.array([0, 1])
+        # set constraints
+        # on u
+        self.ocp.constraints.constr_type = 'BGH'
+        self.ocp.constraints.constr_type_e = 'BGH'
+        self.ocp.constraints.lbu = np.array(
+            [dd.min_F, dd.min_F])
+        self.ocp.constraints.ubu = np.array(
+            [dd.max_F, dd.max_F])
+        self.ocp.constraints.idxbu = np.array([0, 1])
 
-        # # set constraints
-        # # on x
-        # max_p = 1.5
-        # max_v = 0.5
-        # max_a = 0.5
-        # self.ocp.constraints.lbx = np.array(
-        #     [-max_p, -max_p, -max_v, -max_v, -max_a, -max_a])
-        # self.ocp.constraints.ubx = np.array(
-        #     [max_p, max_p, max_v, max_v, max_a, max_a])
-        # self.ocp.constraints.idxbx = np.array([0, 1, 2, 3, 4, 5])
+        # set constraints
+        # on x
+        self.ocp.constraints.lbx = np.array(
+            [dd.min_p_x, dd.min_p_z, dd.min_v_x, dd.min_v_z])
+        self.ocp.constraints.ubx = np.array(
+            [dd.max_p_x, dd.max_p_z, dd.max_v_x, dd.max_v_z])
+        self.ocp.constraints.idxbx = np.array([0, 1, 2, 3])
 
         self.ocp.constraints.x0 = x0
 
@@ -122,7 +120,7 @@ def main(circle: bool = False):
     # generate trajectory
     # with hover thrust as reference
     uref = np.zeros((p.N+p.N_horizon, nu))
-    uref[:, 1] = np.ones(uref.shape[0]) * drone_data.GRAVITY
+    uref[:, 1] = np.ones(uref.shape[0]) * dd.GRAVITY
 
     if circle:
         radius = 1

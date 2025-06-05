@@ -1,7 +1,8 @@
 import numpy as np
 import casadi as ca
 from matplotlib import pyplot as plt
-from params import ExperimentParameters
+from params import DroneData, ExperimentParameters
+dd = DroneData()
 p = ExperimentParameters()
 
 
@@ -85,14 +86,19 @@ def gen_circle_traj(nx, center, radius) -> np.array:
 
 def compare_reftraj_vs_sim(t, reftraj, simX, u):
     _, ax0 = plt.subplots(2)
-    fig1, ax1 = plt.subplots(3, sharex=True)
+    fig1, ax1 = plt.subplots(4, sharex=True)
     # z over x
     if simX is not None:
         ax0[0].plot(simX[:, 0], simX[:, 1], label='$p^\\mathrm{sim}$')
-        ax0[1].plot(simX[:, 2], simX[:, 3], label='$v^\\mathrm{sim}$')
+        ax0[1].plot(simX[:, 2], simX[:, 3],
+                    label='$v^\\mathrm{sim}$', marker='.')
     if reftraj is not None:
-        ax0[0].plot(reftraj[:, 0], reftraj[:, 1], label='$p^\\mathrm{ref}$')
-        ax0[1].plot(reftraj[:, 2], reftraj[:, 3], label='$v^\\mathrm{ref}$')
+        ax0[0].plot(reftraj[:, 0], reftraj[:, 1],
+                    label='$p^\\mathrm{ref}$', linestyle='--', color='tab:orange', alpha=0.7)
+        ax0[1].plot(reftraj[:, 2], reftraj[:, 3],
+                    label='$v^\\mathrm{ref}$', linestyle='--', color='tab:orange', alpha=0.7)
+        # plt.scatter(reftraj[0, 0], reftraj[0, 1],
+        #             label='Starting point', color='green')
 
     # component-wise
     if simX is not None:
@@ -100,6 +106,9 @@ def compare_reftraj_vs_sim(t, reftraj, simX, u):
         ax1[1].plot(t, simX[:, 2], label='$v^\\mathrm{sim}_\\mathrm{x}$')
         ax1[0].plot(t, simX[:, 1], label='$p^\\mathrm{sim}_\\mathrm{z}$')
         ax1[1].plot(t, simX[:, 3], label='$v^\\mathrm{sim}_\\mathrm{z}$')
+        # ax1[0].hlines(y=[dd.min_p_x, dd.max_p_x], linewidth=1,
+        #               linestyles='--', color='gray')
+        # ax1[1].hlines(y=[0., 0.4], linewidth=1, linestyles='--', color='gray')
     if reftraj is not None:
         ax1[0].plot(t, reftraj[:, 0], label='$p^\\mathrm{ref}_\\mathrm{x}$')
         ax1[1].plot(t, reftraj[:, 2], label='$v^\\mathrm{ref}_\\mathrm{x}$')
@@ -107,13 +116,14 @@ def compare_reftraj_vs_sim(t, reftraj, simX, u):
         ax1[1].plot(t, reftraj[:, 3], label='$v^\\mathrm{ref}_\\mathrm{z}$')
     if u is not None:
         ax1[2].plot(t[:-1], u[:, 0], label='$\\theta$')
-        ax1[2].plot(t[:-1], u[:, 1], label='$F_\\mathrm{d}$')
-    fig1.supxlabel('Seconds')
+        ax1[3].plot(t[:-1], u[:, 1], label='$F_\\mathrm{d}$')  # ylabel
+    fig1.supxlabel('Time (s)')
     ax0[0].legend()
     ax0[1].legend()
-    ax1[0].legend()
+    ax1[0].legend()  # labels outside of the plot
     ax1[1].legend()
     ax1[2].legend()
+    ax1[3].legend()
     ax0[0].grid()
     ax0[1].grid()
     ax1[0].grid()

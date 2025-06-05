@@ -43,6 +43,16 @@ class DroneData:
         self.X_LOADCELL = 0.14  # [m]
         self.BAUMGARTE_KAPPA = 1.0
         self.GRAVITY = self.GRAVITY_ACC * self.MASS
+        self.max_F = 1.3 * self.GRAVITY
+        self.min_F = -0.2 * self.GRAVITY
+        self.min_p_x = -2
+        self.max_p_x = 2
+        self.min_p_z = -2
+        self.max_p_z = 2
+        self.min_v_x = -2
+        self.max_v_x = 2
+        self.min_v_z = -2
+        self.max_v_z = 2
         self.HOVER_RPM = np.sqrt(self.GRAVITY / (4 * self.KF))
         self.MAX_RPM = np.sqrt(
             (self.THRUST2WEIGHT_RATIO * self.GRAVITY) / (4 * self.KF))
@@ -96,9 +106,9 @@ class DroneData:
 
 class ExperimentParameters:
     def __init__(self):
-        self.T = 5
-        self.N = 100
-        self.dt = self.T/self.N
+        self.T = 10
+        self.dt = 0.02  # 20msec
+        self.N = int(self.T/self.dt)
         self.N_horizon = 30
 
 
