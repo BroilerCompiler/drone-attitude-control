@@ -1,3 +1,4 @@
+import numpy as np
 import casadi as ca
 from acados_template import AcadosModel
 from params import DroneData
@@ -26,9 +27,10 @@ class PlantModel:
         f_expl = ca.vertcat(
             vx,
             vz,
-            1/dd.MASS * Fd * ca.sin(theta) + 0,  # ax
+            # + np.random.normal(0, 0.1),  # ax
+            1/dd.MASS * Fd * ca.sin(theta),
             1/dd.MASS * Fd *
-            ca.cos(theta) - dd.GRAVITY_ACC  # az
+            ca.cos(theta) - dd.GRAVITY_ACC  # + np.random.normal(0, 0.1)  # az
         )
 
         xdot = ca.SX.sym('xdot', f_expl.shape[0])

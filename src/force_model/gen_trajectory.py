@@ -53,6 +53,8 @@ def gen_straight_traj(nx, initial, length):
     # const jerk
     jerk = 6*length / p.T**3
 
+    # TODO: remove jerk from force model
+
     xref = np.zeros((p.N_horizon+p.N+1, nx))
     for i in range(p.N_horizon+p.N+1):
         xref[i, 0] = initial[0] + 1/6 * jerk * (i * p.dt)**3
