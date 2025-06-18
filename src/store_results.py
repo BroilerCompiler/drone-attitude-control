@@ -28,8 +28,8 @@ def create_plots(XRef, XSim, UOpt, store_plots=False):
     height = 3.5  # inches
     ls_ref = ':'
     ls_sim = '-'
-    col_x = 'deepskyblue'
-    col_x_ref = 'skyblue'
+    col_x_1 = 'deepskyblue'
+    col_x_2 = 'skyblue'
     col_u = 'darkgreen'
     col_u_ref = 'lightgreen'
 
@@ -37,14 +37,14 @@ def create_plots(XRef, XSim, UOpt, store_plots=False):
     plt.figure(figsize=(width, height))
     if XSim is not None:
         plt.plot(XSim[:, 0], XSim[:, 1],
-                 label='$p^\\mathrm{sim}$', linestyle=ls_sim, color=col_x, alpha=0.7)
+                 label='$p^\\mathrm{sim}$', linestyle=ls_sim, color=col_x_1, alpha=0.7)
         plt.hlines(y=[dd.min_p_x, dd.max_p_x], xmin=dd.min_p_z, xmax=dd.max_p_z, linewidth=1,
                    linestyles='--', color='black')
         plt.vlines(x=[dd.min_p_z, dd.max_p_z], ymin=dd.min_p_x, ymax=dd.max_p_x, linewidth=1,
                    linestyles='--', color='black')
     if XRef is not None:
         plt.plot(XRef[:, 0], XRef[:, 1],
-                 label='$p^\\mathrm{ref}$', linestyle=ls_ref, color=col_x_ref, alpha=0.7)
+                 label='$p^\\mathrm{ref}$', linestyle=ls_ref, color=col_x_1, alpha=0.7)
     if XSim is not None:
         plt.scatter(XSim[0, 0], XSim[0, 1],
                     label='Starting point', color='green')
@@ -65,14 +65,14 @@ def create_plots(XRef, XSim, UOpt, store_plots=False):
     plt.figure(figsize=(width, height))
     if XSim is not None:
         plt.plot(XSim[:, 2], XSim[:, 3],
-                 label='$v^\\mathrm{sim}$', linestyle=ls_sim, color=col_x, alpha=0.7)
+                 label='$v^\\mathrm{sim}$', linestyle=ls_sim, color=col_x_2, alpha=0.7)
         plt.hlines(y=[dd.min_v_x, dd.max_v_x], xmin=dd.min_v_z, xmax=dd.max_v_z, linewidth=1,
                    linestyles='--', color='black')
         plt.vlines(x=[dd.min_v_z, dd.max_v_z], ymin=dd.min_v_x, ymax=dd.max_v_x, linewidth=1,
                    linestyles='--', color='black')
     if XRef is not None:
         plt.plot(XRef[:, 2], XRef[:, 3],
-                 label='$v^\\mathrm{ref}$', linestyle=ls_ref, color=col_x_ref, alpha=0.7)
+                 label='$v^\\mathrm{ref}$', linestyle=ls_ref, color=col_x_2, alpha=0.7)
     plt.axis('equal')
     plt.grid()
     plt.xlabel('Velocity (m/s)')
@@ -89,35 +89,36 @@ def create_plots(XRef, XSim, UOpt, store_plots=False):
     # component-wise
     width = 5  # inches
     height = 5  # inches
-    xmax = UOpt.shape[0]
-    x = np.arange(0, xmax*p.dt, p.dt)
+    x_dt = np.arange(0, p.T, p.dt)
+    x_dt_conv = np.arange(0, p.T, p.dt_converter)
+    xmax = len(x_dt_conv)
 
-    fig, ax = plt.subplots(4, sharex=True, figsize=(
+    fig, ax = plt.subplots(4, sharex=False, figsize=(
         width, height), layout='constrained')
 
     # component-wise
     if XSim is not None:
-        ax[0].plot(x, XSim[:xmax, 0],
-                   label='$p^\\mathrm{sim}_\\mathrm{x}$', linestyle=ls_sim, color=col_x, alpha=0.7)
-        ax[0].plot(x, XSim[:xmax, 1],
-                   label='$p^\\mathrm{sim}_\\mathrm{z}$', linestyle=ls_sim, color=col_x, alpha=0.7)
-        ax[1].plot(x, XSim[:xmax, 2],
-                   label='$v^\\mathrm{sim}_\\mathrm{x}$', linestyle=ls_sim, color=col_x, alpha=0.7)
-        ax[1].plot(x, XSim[:xmax, 3],
-                   label='$v^\\mathrm{sim}_\\mathrm{z}$', linestyle=ls_sim, color=col_x, alpha=0.7)
+        ax[0].plot(x_dt_conv, XSim[:xmax, 0],
+                   label='$p^\\mathrm{sim}_\\mathrm{x}$', linestyle=ls_sim, color=col_x_1, alpha=0.7)
+        ax[0].plot(x_dt_conv, XSim[:xmax, 1],
+                   label='$p^\\mathrm{sim}_\\mathrm{z}$', linestyle=ls_sim, color=col_x_1, alpha=0.7)
+        ax[1].plot(x_dt_conv, XSim[:xmax, 2],
+                   label='$v^\\mathrm{sim}_\\mathrm{x}$', linestyle=ls_sim, color=col_x_1, alpha=0.7)
+        ax[1].plot(x_dt_conv, XSim[:xmax, 3],
+                   label='$v^\\mathrm{sim}_\\mathrm{z}$', linestyle=ls_sim, color=col_x_1, alpha=0.7)
     if XRef is not None:
-        ax[0].plot(x, XRef[:xmax, 0],
-                   label='$p^\\mathrm{ref}_\\mathrm{x}$', linestyle=ls_ref, color=col_x_ref, alpha=0.7)
-        ax[0].plot(x, XRef[:xmax, 1],
-                   label='$p^\\mathrm{ref}_\\mathrm{z}$', linestyle=ls_ref, color=col_x_ref, alpha=0.7)
-        ax[1].plot(x, XRef[:xmax, 2],
-                   label='$v^\\mathrm{ref}_\\mathrm{x}$', linestyle=ls_ref, color=col_x_ref, alpha=0.7)
-        ax[1].plot(x, XRef[:xmax, 3],
-                   label='$v^\\mathrm{ref}_\\mathrm{z}$', linestyle=ls_ref, color=col_x_ref, alpha=0.7)
+        ax[0].plot(x_dt_conv, XRef[:xmax, 0],
+                   label='$p^\\mathrm{ref}_\\mathrm{x}$', linestyle=ls_ref, color=col_x_2, alpha=0.7)
+        ax[0].plot(x_dt_conv, XRef[:xmax, 1],
+                   label='$p^\\mathrm{ref}_\\mathrm{z}$', linestyle=ls_ref, color=col_x_2, alpha=0.7)
+        ax[1].plot(x_dt_conv, XRef[:xmax, 2],
+                   label='$v^\\mathrm{ref}_\\mathrm{x}$', linestyle=ls_ref, color=col_x_2, alpha=0.7)
+        ax[1].plot(x_dt_conv, XRef[:xmax, 3],
+                   label='$v^\\mathrm{ref}_\\mathrm{z}$', linestyle=ls_ref, color=col_x_2, alpha=0.7)
     if UOpt is not None:
-        ax[2].plot(x, UOpt[:xmax, 0], label='$\\theta$',
+        ax[2].plot(x_dt_conv, UOpt[:xmax, 0], label='$\\theta$',
                    linestyle=ls_sim, color=col_u, alpha=0.7)
-        ax[3].plot(x, UOpt[:xmax, 1],
+        ax[3].plot(x_dt_conv, UOpt[:xmax, 1],
                    label='$F_\\mathrm{d}$', linestyle=ls_sim, color=col_u, alpha=0.7)
     fig.supxlabel('Time (s)')
     fig.align_ylabels()

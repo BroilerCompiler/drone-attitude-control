@@ -1,6 +1,5 @@
 import numpy as np
-import copy
-from jerk_model.gen_trajectory import gen_circle_traj, gen_static_point_traj
+from jerk_model.gen_trajectory import gen_circle_traj, gen_static_point_traj, gen_straight_traj, gen_reference_u
 from store_results import create_plots
 from acados_template import AcadosOcp, AcadosOcpSolver, AcadosSim, AcadosSimSolver
 from plant import PlantModel
@@ -18,7 +17,7 @@ class OCP():
         self.sim = None
         self.integrator = None  # sim_solver
 
-    def create_ocp(self, model, x0):
+    def create_ocp(self, model):
 
         self.ocp = AcadosOcp()
         self.ocp.code_export_directory = 'c_generated_code_' + self.ocp_name
@@ -35,8 +34,8 @@ class OCP():
         ny_e = nx
 
         # weighting matrices
-        w_x = np.array([1e2, 1e2, 1e0, 1e0, 1e0, 1e0])
-        w_x_e = np.array([1e2, 1e2, 1e0, 1e0, 1e0, 1e0])
+        w_x = np.array([1e2, 1e2, 1e0, 1e0, 0, 0])
+        w_x_e = np.array([1e2, 1e2, 1e0, 1e0, 0, 0])
         Q = np.diag(w_x)
 
         w_u = np.array([1e-1]*nu)
@@ -48,15 +47,15 @@ class OCP():
 
         # selection matrices
         self.ocp.cost.Vx = np.zeros((ny, nx))
-        self.ocp.cost.Vx[:nx, :] = np.eye(nx)
+        self.ocp.cost.Vx[:nx] = np.eye(nx)
         self.ocp.cost.Vu = np.zeros((ny, nu))
-        self.ocp.cost.Vu[nx:, :] = np.eye(nu)
+        self.ocp.cost.Vu[nx:] = np.eye(nu)
 
         self.ocp.cost.Vx_e = np.eye(nx)
 
         self.ocp.cost.yref = np.zeros((ny, ))
         self.ocp.cost.yref_e = np.zeros((ny_e, ))
-
+        """
         # set constraints
         # on u
         self.ocp.constraints.constr_type = 'BGH'
@@ -74,8 +73,10 @@ class OCP():
         self.ocp.constraints.ubx = np.array(
             [dd.max_p_x, dd.max_p_z, dd.max_v_x, dd.max_v_z, dd.max_a_x, dd.max_a_z])
         self.ocp.constraints.idxbx = np.array([0, 1, 2, 3, 4, 5])
+        """
 
-        self.ocp.constraints.x0 = x0
+        # FIXME: do i need to pass something here?
+        self.ocp.constraints.x0 = np.zeros(nx)
 
     def create_ocp_solver(self):
 
@@ -96,7 +97,7 @@ class OCP():
 
         self.sim = AcadosSim()
         self.sim.model = model
-        self.sim.solver_options.T = p.dt
+        self.sim.solver_options.T = p.dt_converter
         self.integrator = AcadosSimSolver(self.sim, verbose=False)
 
     def simulate_next_x(self, x0, u):
@@ -113,30 +114,35 @@ def main(circle: bool = False):
     controllerModel = ControllerModel()
     plantModel = PlantModel()
     converter = Converter()
+    nx_plant = plantModel.model.x.shape[0]
     nx = controllerModel.model.x.shape[0]
     nu = controllerModel.model.u.shape[0]
+    cps = p.ctrls_per_sample
 
-    # generate trajectory
-    # with hover thrust as reference
-    uref = np.zeros((p.N+p.N_horizon, nu))
-    uref[:, 1] = np.ones(uref.shape[0]) * dd.GRAVITY
-
+    # gen reference
     if circle:
         radius = 1
-        xref = gen_circle_traj(nx, center=np.array([0, 0]), radius=radius)
+        xref = gen_circle_traj(
+            nx, center=np.array([0, 0]), radius=radius)
     else:
-        static_point = [1, 0.5]
-        xref = gen_static_point_traj(nx, static_point)
+        length = 1
+        xref = gen_straight_traj(nx, initial=[0, 0], length=length)
+        xref = gen_static_point_traj(nx, initial=[0, 0.5])
+
+    uref = gen_reference_u(nu)  # generate zeros
 
     # output arrays
-    Xsim = np.zeros((p.N+1, nx))
-    Xsim[0, :] = np.zeros(Xsim.shape[1])
     U_opt_ctrl = np.zeros((p.N, nu))
-    U_opt_plant = np.concatenate([U_opt_ctrl]*p.ctrls_per_sample)
+    U_opt_plant = np.zeros((p.N*cps, nu))
+    Xsim = np.zeros((p.N*cps+1, nx_plant))
+    Xsim[0] = xref[0, :nx_plant]  # [1, 0, 0, 0] later if xref[0] works
+    # contains accelerations (output of converter)
+    a = np.zeros((p.N, nx-nx_plant))
+    a_i = [0, dd.GRAVITY_ACC]  # initial acceleration (hover)
 
     # create OCP
     ocp = OCP()
-    ocp.create_ocp(controllerModel.model, x0=xref[0, :])
+    ocp.create_ocp(controllerModel.model)
     ocp.create_ocp_solver()
     ocp.create_simulator(plantModel.model)
 
@@ -145,18 +151,27 @@ def main(circle: bool = False):
         # Set up OCP
         for k in range(p.N_horizon):
             ocp.ocp_solver.set(k, 'yref', np.hstack(
-                (xref[iter + k, :], uref[iter + k, :])))
-        ocp.ocp_solver.set(p.N_horizon, 'yref', xref[iter + p.N_horizon, :])
+                (xref[(iter + k)*cps], uref[iter + k])))
+        ocp.ocp_solver.set(p.N_horizon, 'yref',
+                           xref[(iter + p.N_horizon)*cps])
 
         # Solve
-        U_opt_ctrl[iter, :] = ocp.ocp_solver.solve_for_x0(x0_bar=Xsim[iter, :])
+        x0_bar = np.hstack((Xsim[iter*cps], a[iter]))
+        U_opt_ctrl[iter] = ocp.ocp_solver.solve_for_x0(x0_bar)
+
+        # convert U_opt_ctrl to _plant
+        u_tmp, a_i = converter.convert(U_opt_ctrl[iter], a_i)
+        U_opt_plant[iter*cps: iter*cps + cps] = u_tmp
+        a[iter] = a_i
 
         print(
-            f'{iter}: U_opt [h_x h_z]: {np.round(U_opt_ctrl[iter, :], 2)} X: {np.round(Xsim[iter, :], 2)}')
+            f'{iter}: U_opt [h_x h_z]: {np.round(U_opt_ctrl[iter], 2)} X: {np.round(Xsim[iter], 2)}')
 
-        # Simulate next state
-        Xsim[iter+1, :] = ocp.simulate_next_x(
-            Xsim[iter, :], U_opt_ctrl[iter, :])
+        # Simulate next states
+        # (one optimal jerk command produces multiple U_opt_plant commands)
+        for i in range(p.ctrls_per_sample):
+            Xsim[iter*cps+i+1, :nx_plant] = ocp.simulate_next_x(
+                Xsim[iter*cps+i], U_opt_plant[iter*cps+i])
 
     # show results
     create_plots(xref, Xsim, U_opt_plant, store_plots=False)
@@ -164,4 +179,4 @@ def main(circle: bool = False):
 
 # define main function for testing
 if __name__ == '__main__':
-    main(circle=True)
+    main(circle=False)

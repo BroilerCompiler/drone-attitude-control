@@ -56,47 +56,46 @@ class Converter:
     def __init__(self):
         pass
 
-    def convert(self, u_tilde, a_0):
-        """Converts from the controller model (u_tilde is jerk) 
+    def convert(self, h, a_i):
+        """
+        Implements a_{i+1} = a_i + h_iter * dt_converter
+
+        Converts from the controller model (h is jerk) 
         to plant model (u are Thrust and pitch).
         Takes single u aswell as vector of u.
         Returns more controls than it took in, because the input is oversampled and 
         at every sample point the acceleration is calculated (grows linearly at constant jerk)
 
         Args:
-            u_tilde (_type_): Force vector component-wise
+            h (_type_): Force vector component-wise
 
         Returns:
             _type_: pitch, Thrust
         """
         # input is only single u
-        if len(u_tilde.shape) == 1:
-            return self.convert_one(u_tilde, a_0)
+        if len(h.shape) == 1:
+            return self.convert_one(h, a_i)
 
         # input is a vector of u
         else:
             cps = p.ctrls_per_sample
-            u = np.zeros(u_tilde.shape)
-            u = np.concatenate([u]*cps)
-            u[0:cps], a_i = self.convert_one(u_tilde[0], a_0)
-            for i in range(1, u_tilde.shape[0]):
-                u_tmp, a_i = self.convert_one(u_tilde[i], a_i)
-                u[i*cps: i*cps + cps] = u_tmp
-        return u
+            u = np.zeros((h.shape[0]*cps, h.shape[1]))
+            a = np.zeros((h.shape))
+            for i in range(h.shape[0]):
+                u[i*cps: i*cps + cps], a_i = self.convert_one(h[i], a_i)
+                a[i] = a_i
+        return u, a
 
-    def convert_one(self, u_tilde, a_i):
-        h_x, h_z = u_tilde
-        u = np.zeros((p.ctrls_per_sample, u_tilde.shape[0]))
+    def convert_one(self, h, a):
+        u = np.zeros((p.ctrls_per_sample, 2))
         for j in range(p.ctrls_per_sample):
-            a_x = (h_x * j*p.dt_converter + a_i[0])
-            a_z = (h_z * j*p.dt_converter + a_i[1])
-            F_x = dd.MASS * a_x
-            F_z = dd.MASS * a_z
-            theta = np.arctan2(F_x, F_z)
-            F_d = np.sqrt(F_x*F_x + F_z*F_z)
-            u[j] = [theta, F_d]
+            a += h * p.dt_converter  # integrate over h
 
-        return u, [a_x, a_z]
+            F_x = dd.MASS * a[0]
+            F_z = dd.MASS * a[1]
+            u[j, 0] = np.arctan2(F_x, F_z)  # theta
+            u[j, 1] = np.sqrt(F_x*F_x + F_z*F_z)  # F_d
+        return u, a
 
 
 def simulate_dynamics(model, x0, u):
@@ -130,10 +129,10 @@ def simulate_dynamics(model, x0, u):
     integrator = AcadosSimSolver(sim, verbose=False)
 
     nx = sim.model.x.shape[0]
-    simX = np.ndarray((p.N*p.ctrls_per_sample+1, nx))
+    simX = np.ndarray((u.shape[0]+1, nx))
     simX[0, :] = x0
 
-    for i in range(p.N*p.ctrls_per_sample):
+    for i in range(u.shape[0]):
         simX[i+1, :] = integrator.simulate(x=simX[i, :], u=u[i])
 
     return simX
@@ -163,7 +162,8 @@ def test_drone_dynamics(circle: bool = False):
 
     # simulate states over the whole trajectory using the plant model
     x0 = traj[0]
-    uref_plant = converter.convert(uref_ctrl, a_0=[0, +dd.GRAVITY_ACC])
+    # a is omitted here, because it is not fed back to the control model
+    uref_plant, _ = converter.convert(uref_ctrl, a_i=[0, +dd.GRAVITY_ACC])
     simX = simulate_dynamics(plantModel.model, x0, uref_plant)
 
     # plot results
@@ -181,4 +181,4 @@ def test_drone_dynamics(circle: bool = False):
 
 # define main function for testing
 if __name__ == '__main__':
-    test_drone_dynamics(circle=True)
+    test_drone_dynamics(circle=False)

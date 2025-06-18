@@ -47,8 +47,7 @@ def gen_static_point_traj(nx, initial) -> np.array:
     xref = np.zeros((N, nx))
     xref[:, 0] = np.ones(N)*initial[0]
     xref[:, 1] = np.ones(N)*initial[1]
-    xref[:, 2] = 0
-    xref[:, 3] = 0
+
     return xref
 
 
@@ -65,9 +64,9 @@ def gen_straight_traj(nx, initial, length) -> np.array:
     xref = np.zeros((N, nx))
     for i in range(N):
         xref[i, 0] = initial[0] + 1/6 * jerk * (i * p.dt_converter)**3
-        xref[i, 1] = initial[1]
+        xref[i, 1] = initial[1] + 1/6 * jerk * (i * p.dt_converter)**3 * 2
         xref[i, 2] = 0.5 * jerk * (i * p.dt_converter)**2
-        xref[i, 3] = 0
+        xref[i, 3] = 0.5 * jerk * (i * p.dt_converter)**2 * 2
 
     return xref
 
@@ -95,7 +94,7 @@ def gen_circle_traj(nx, center, radius) -> np.array:
 
 def gen_straight_u(nu, length):
     uref_ctrl = np.zeros((p.N, nu))
-    jerk = 6*length / p.T**3 * 4/3
+    jerk = 6*length / p.T**3
     uref_ctrl[:, 0] = np.ones(p.N) * jerk  # h_x
     uref_ctrl[:, 1] = 0  # h_z
     return uref_ctrl
@@ -109,6 +108,14 @@ def gen_circle_u(nu, radius):
         uref_ctrl[i, 1] = -radius * ca.sin(omega*i/p.N*p.T)*(omega)**4
 
     return uref_ctrl
+
+
+def gen_reference_u(nu):
+    # generate trajectory with hover thrust as reference
+    uref = np.zeros((p.N+p.N_horizon, nu))
+    # uref[:, 1] = np.ones(uref.shape[0]) * dd.GRAVITY
+
+    return uref
 
 
 # define main function for testing
