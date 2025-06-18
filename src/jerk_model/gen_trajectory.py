@@ -64,9 +64,9 @@ def gen_straight_traj(nx, initial, length) -> np.array:
     xref = np.zeros((N, nx))
     for i in range(N):
         xref[i, 0] = initial[0] + 1/6 * jerk * (i * p.dt_converter)**3
-        xref[i, 1] = initial[1] + 1/6 * jerk * (i * p.dt_converter)**3 * 2
+        xref[i, 1] = initial[1] + 1/6 * jerk * (i * p.dt_converter)**3
         xref[i, 2] = 0.5 * jerk * (i * p.dt_converter)**2
-        xref[i, 3] = 0.5 * jerk * (i * p.dt_converter)**2 * 2
+        xref[i, 3] = 0.5 * jerk * (i * p.dt_converter)**2
 
     return xref
 
@@ -96,7 +96,7 @@ def gen_straight_u(nu, length):
     uref_ctrl = np.zeros((p.N, nu))
     jerk = 6*length / p.T**3
     uref_ctrl[:, 0] = np.ones(p.N) * jerk  # h_x
-    uref_ctrl[:, 1] = 0  # h_z
+    uref_ctrl[:, 1] = np.ones(p.N) * jerk  # h_z
     return uref_ctrl
 
 
