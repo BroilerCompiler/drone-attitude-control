@@ -72,40 +72,43 @@ def gen_straight_traj(nx, initial, length) -> np.array:
 
 
 def gen_circle_traj(nx, center, radius) -> np.array:
-
-    N = p.N_horizon+p.N+1
     # sample traj at the converter frequency (higher than MPC frequency)
+    N = p.N_horizon+p.N+1
     N = N*p.ctrls_per_sample
 
-    omega = 2*np.pi/p.T
-
     xref = np.zeros((N, nx))
-    for i in range(N):
-        # pos ref
-        xref[i, 0] = center[0] + radius*np.cos(omega*i/p.N*p.T)
-        xref[i, 1] = center[1] + radius*np.sin(omega*i/p.N*p.T)
 
-        # velocity ref
-        xref[i, 2] = -radius*np.sin(omega*i/p.N*p.T)*omega
-        xref[i, 3] = radius*np.cos(omega*i/p.N*p.T)*omega
+    omega = 2*np.pi/p.T
+    i = np.linspace(0, p.T, N)
+
+    xref[:, 0] = center[0] + radius * np.cos(omega*i)
+    xref[:, 1] = center[1] + radius * np.sin(omega*i)
+    xref[:, 2] = -radius * omega * np.sin(omega*i)
+    xref[:, 3] = radius * omega * np.cos(omega*i)
+    xref[:, 4] = -radius * omega**2 * np.cos(omega*i)
+    xref[:, 5] = -radius * omega**2 * np.sin(omega*i)
 
     return xref
 
 
 def gen_straight_u(nu, length):
-    uref_ctrl = np.zeros((p.N, nu))
+    N = p.N + p.N_horizon
+    uref_ctrl = np.zeros((N, nu))
     jerk = 6*length / p.T**3
-    uref_ctrl[:, 0] = np.ones(p.N) * jerk  # h_x
-    uref_ctrl[:, 1] = np.ones(p.N) * jerk  # h_z
+    uref_ctrl[:, 0] = np.ones(N) * jerk  # h_x
+    uref_ctrl[:, 1] = np.ones(N) * jerk  # h_z
     return uref_ctrl
 
 
 def gen_circle_u(nu, radius):
-    uref_ctrl = np.zeros((p.N, nu))
-    omega = 2*ca.pi/p.T
-    for i in range(p.N):
-        uref_ctrl[i, 0] = -radius * ca.cos(omega*i/p.N*p.T)*(omega)**4
-        uref_ctrl[i, 1] = -radius * ca.sin(omega*i/p.N*p.T)*(omega)**4
+    N = p.N + p.N_horizon
+    uref_ctrl = np.zeros((N, nu))
+
+    i = np.linspace(0, p.T, N)
+
+    omega = 2*np.pi/p.T
+    uref_ctrl[:, 0] = radius * omega**3 * np.sin(omega*i)
+    uref_ctrl[:, 1] = -radius * omega**3 * np.cos(omega*i)
 
     return uref_ctrl
 

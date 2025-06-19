@@ -159,6 +159,7 @@ def test_drone_dynamics(circle: bool = False):
         length = 1
         traj = gen_straight_traj(nx_plant, initial=[0, 0], length=length)
         uref_ctrl = gen_straight_u(nu, length)
+        # uref_ctrl = np.zeros(uref_ctrl.shape) #for static point
 
     # simulate states over the whole trajectory using the plant model
     x0 = traj[0]

@@ -1,5 +1,5 @@
 import numpy as np
-from jerk_model.gen_trajectory import gen_circle_traj, gen_static_point_traj, gen_straight_traj, gen_reference_u
+from jerk_model.gen_trajectory import gen_circle_traj, gen_static_point_traj, gen_straight_traj, gen_straight_u
 from store_results import create_plots
 from acados_template import AcadosOcp, AcadosOcpSolver, AcadosSim, AcadosSimSolver
 from plant import PlantModel
@@ -34,8 +34,8 @@ class OCP():
         ny_e = nx
 
         # weighting matrices
-        w_x = np.array([1e2, 1e2, 1e0, 1e0, 0, 0])
-        w_x_e = np.array([1e2, 1e2, 1e0, 1e0, 0, 0])
+        w_x = np.array([1e2, 1e2, 1e2, 1e2, 0, 0])
+        w_x_e = np.array([1e2, 1e2, 1e2, 1e2, 0, 0])
         Q = np.diag(w_x)
 
         w_u = np.array([1e-1]*nu)
@@ -122,20 +122,18 @@ def main(circle: bool = False):
     # gen reference
     if circle:
         radius = 1
-        xref = gen_circle_traj(
-            nx, center=np.array([0, 0]), radius=radius)
+        xref = gen_circle_traj(nx, center=[0, 0], radius=radius)
     else:
-        length = 1
-        xref = gen_straight_traj(nx, initial=[0, 0], length=length)
-        xref = gen_static_point_traj(nx, initial=[0, 0.5])
+        xref = gen_straight_traj(nx, initial=[0, 1], length=1)
 
-    uref = gen_reference_u(nu)  # generate zeros
+    uref = np.zeros((p.N_horizon+p.N, nu))
 
     # output arrays
     U_opt_ctrl = np.zeros((p.N, nu))
     U_opt_plant = np.zeros((p.N*cps, nu))
+    x0 = xref[0, :nx_plant]
     Xsim = np.zeros((p.N*cps+1, nx_plant))
-    Xsim[0] = xref[0, :nx_plant]  # [1, 0, 0, 0] later if xref[0] works
+    Xsim[0] = x0
     # contains accelerations (output of converter)
     a = np.zeros((p.N, nx-nx_plant))
     a_i = [0, dd.GRAVITY_ACC]  # initial acceleration (hover)
@@ -156,8 +154,9 @@ def main(circle: bool = False):
                            xref[(iter + p.N_horizon)*cps])
 
         # Solve
-        x0_bar = np.hstack((Xsim[iter*cps], a[iter]))
-        U_opt_ctrl[iter] = ocp.ocp_solver.solve_for_x0(x0_bar)
+        x0_bar = np.hstack((Xsim[iter*cps], a_i))
+        U_opt_ctrl[iter] = ocp.ocp_solver.solve_for_x0(
+            x0_bar)
 
         # convert U_opt_ctrl to _plant
         u_tmp, a_i = converter.convert(U_opt_ctrl[iter], a_i)
@@ -165,7 +164,7 @@ def main(circle: bool = False):
         a[iter] = a_i
 
         print(
-            f'{iter}: U_opt [h_x h_z]: {np.round(U_opt_ctrl[iter], 2)} X: {np.round(Xsim[iter], 2)}')
+            f'{iter}: U_opt [h_x h_z]: {np.round(U_opt_ctrl[iter], 2)} X: {np.round(Xsim[iter*cps], 2)}')
 
         # Simulate next states
         # (one optimal jerk command produces multiple U_opt_plant commands)
@@ -179,4 +178,4 @@ def main(circle: bool = False):
 
 # define main function for testing
 if __name__ == '__main__':
-    main(circle=False)
+    main(circle=True)
