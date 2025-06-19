@@ -182,4 +182,4 @@ def test_drone_dynamics(circle: bool = False):
 
 # define main function for testing
 if __name__ == '__main__':
-    test_drone_dynamics(circle=False)
+    test_drone_dynamics(circle=True)

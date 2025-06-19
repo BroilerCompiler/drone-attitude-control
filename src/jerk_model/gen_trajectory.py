@@ -73,20 +73,22 @@ def gen_straight_traj(nx, initial, length) -> np.array:
 
 def gen_circle_traj(nx, center, radius) -> np.array:
     # sample traj at the converter frequency (higher than MPC frequency)
-    N = p.N_horizon+p.N+1
-    N = N*p.ctrls_per_sample
+    N = p.N*p.ctrls_per_sample
 
-    xref = np.zeros((N, nx))
+    xref = np.zeros((N+p.N_horizon*p.ctrls_per_sample, nx))
 
     omega = 2*np.pi/p.T
     i = np.linspace(0, p.T, N)
 
-    xref[:, 0] = center[0] + radius * np.cos(omega*i)
-    xref[:, 1] = center[1] + radius * np.sin(omega*i)
-    xref[:, 2] = -radius * omega * np.sin(omega*i)
-    xref[:, 3] = radius * omega * np.cos(omega*i)
-    xref[:, 4] = -radius * omega**2 * np.cos(omega*i)
-    xref[:, 5] = -radius * omega**2 * np.sin(omega*i)
+    xref[:N, 0] = center[0] + radius * np.cos(omega*i)
+    xref[:N, 1] = center[1] + radius * np.sin(omega*i)
+    xref[:N, 2] = -radius * omega * np.sin(omega*i)
+    xref[:N, 3] = radius * omega * np.cos(omega*i)
+    if nx > 4:
+        xref[:N, 4] = -radius * omega**2 * np.cos(omega*i)
+        xref[:N, 5] = -radius * omega**2 * np.sin(omega*i)
+
+    xref[N:] = xref[:p.N_horizon*p.ctrls_per_sample]
 
     return xref
 

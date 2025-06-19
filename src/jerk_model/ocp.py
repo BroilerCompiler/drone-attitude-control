@@ -55,7 +55,7 @@ class OCP():
 
         self.ocp.cost.yref = np.zeros((ny, ))
         self.ocp.cost.yref_e = np.zeros((ny_e, ))
-        """
+
         # set constraints
         # on u
         self.ocp.constraints.constr_type = 'BGH'
@@ -68,12 +68,12 @@ class OCP():
 
         # set constraints
         # on x
+
         self.ocp.constraints.lbx = np.array(
             [dd.min_p_x, dd.min_p_z, dd.min_v_x, dd.min_v_z, dd.min_a_x, dd.min_a_z])
         self.ocp.constraints.ubx = np.array(
             [dd.max_p_x, dd.max_p_z, dd.max_v_x, dd.max_v_z, dd.max_a_x, dd.max_a_z])
         self.ocp.constraints.idxbx = np.array([0, 1, 2, 3, 4, 5])
-        """
 
         # FIXME: do i need to pass something here?
         self.ocp.constraints.x0 = np.zeros(nx)
@@ -164,7 +164,7 @@ def main(circle: bool = False):
         a[iter] = a_i
 
         print(
-            f'{iter}: U_opt [h_x h_z]: {np.round(U_opt_ctrl[iter], 2)} X: {np.round(Xsim[iter*cps], 2)}')
+            f'{iter}: U_opt [h_x h_z]: {np.round(U_opt_ctrl[iter], 2)} X: {np.round(np.hstack((Xsim[iter*cps], a_i)), 2)}')
 
         # Simulate next states
         # (one optimal jerk command produces multiple U_opt_plant commands)
