@@ -63,32 +63,30 @@ def gen_straight_traj(nx, initial, length) -> np.array:
 
     xref = np.zeros((N, nx))
     for i in range(N):
-        xref[i, 0] = initial[0] + 1/6 * jerk * (i * p.dt_converter)**3
-        xref[i, 1] = initial[1] + 1/6 * jerk * (i * p.dt_converter)**3
-        xref[i, 2] = 0.5 * jerk * (i * p.dt_converter)**2
-        xref[i, 3] = 0.5 * jerk * (i * p.dt_converter)**2
+        xref[i, 0] = initial[0] + 1/6 * jerk * (i * p.dt_conv)**3
+        xref[i, 1] = initial[1] + 1/6 * jerk * (i * p.dt_conv)**3
+        xref[i, 2] = 0.5 * jerk * (i * p.dt_conv)**2
+        xref[i, 3] = 0.5 * jerk * (i * p.dt_conv)**2
 
     return xref
 
 
 def gen_circle_traj(nx, center, radius) -> np.array:
     # sample traj at the converter frequency (higher than MPC frequency)
-    N = p.N*p.ctrls_per_sample
-
-    xref = np.zeros((N+p.N_horizon*p.ctrls_per_sample, nx))
+    xref = np.zeros((p.N_conv+p.N_horizon*p.ctrls_per_sample, nx))
 
     omega = 2*np.pi/p.T
-    i = np.linspace(0, p.T, N)
+    i = np.linspace(0, p.T, p.N_conv)
 
-    xref[:N, 0] = center[0] + radius * np.cos(omega*i)
-    xref[:N, 1] = center[1] + radius * np.sin(omega*i)
-    xref[:N, 2] = -radius * omega * np.sin(omega*i)
-    xref[:N, 3] = radius * omega * np.cos(omega*i)
+    xref[:p.N_conv, 0] = center[0] + radius * np.cos(omega*i)
+    xref[:p.N_conv, 1] = center[1] + radius * np.sin(omega*i)
+    xref[:p.N_conv, 2] = -radius * omega * np.sin(omega*i)
+    xref[:p.N_conv, 3] = radius * omega * np.cos(omega*i)
     if nx > 4:
-        xref[:N, 4] = -radius * omega**2 * np.cos(omega*i)
-        xref[:N, 5] = -radius * omega**2 * np.sin(omega*i)
+        xref[:p.N_conv, 4] = -radius * omega**2 * np.cos(omega*i)
+        xref[:p.N_conv, 5] = -radius * omega**2 * np.sin(omega*i)
 
-    xref[N:] = xref[:p.N_horizon*p.ctrls_per_sample]
+    xref[p.N_conv:] = xref[:p.N_horizon*p.ctrls_per_sample]
 
     return xref
 
@@ -103,10 +101,9 @@ def gen_straight_u(nu, length):
 
 
 def gen_circle_u(nu, radius):
-    N = p.N + p.N_horizon
-    uref_ctrl = np.zeros((N, nu))
+    uref_ctrl = np.zeros((p.N*p.ctrls_per_sample, nu))
 
-    i = np.linspace(0, p.T, N)
+    i = np.linspace(0, p.T, p.N*p.ctrls_per_sample)
 
     omega = 2*np.pi/p.T
     uref_ctrl[:, 0] = radius * omega**3 * np.sin(omega*i)

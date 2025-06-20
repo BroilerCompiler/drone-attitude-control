@@ -58,7 +58,7 @@ class Converter:
 
     def convert(self, h, a_i):
         """
-        Implements a_{i+1} = a_i + h_iter * dt_converter
+        Implements a_{i+1} = a_i + h_iter * dt_conv
 
         Converts from the controller model (h is jerk) 
         to plant model (u are Thrust and pitch).
@@ -89,7 +89,7 @@ class Converter:
     def convert_one(self, h, a):
         u = np.zeros((p.ctrls_per_sample, 2))
         for j in range(p.ctrls_per_sample):
-            a += h * p.dt_converter  # integrate over h
+            a += h * p.dt_conv  # integrate over h
 
             F_x = dd.MASS * a[0]
             F_z = dd.MASS * a[1]
@@ -124,7 +124,7 @@ def simulate_dynamics(model, x0, u):
 
     sim.solver_options.integrator_type = 'IRK'
 
-    sim.solver_options.T = p.dt_converter
+    sim.solver_options.T = p.dt_conv
 
     integrator = AcadosSimSolver(sim, verbose=False)
 

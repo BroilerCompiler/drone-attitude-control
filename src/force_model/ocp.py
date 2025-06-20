@@ -1,11 +1,11 @@
 import numpy as np
 import copy
-from force_model.gen_trajectory import gen_circle_traj, gen_static_point_traj
 from store_results import create_plots
-from acados_template import AcadosOcp, AcadosOcpSolver, AcadosSim, AcadosSimSolver
-from plant import PlantModel
-from dynamics import ControllerModel, Converter
 from params import ExperimentParameters, DroneData
+from plant import PlantModel
+from acados_template import AcadosOcp, AcadosOcpSolver, AcadosSim, AcadosSimSolver
+from force_model.gen_trajectory import gen_circle_traj, gen_static_point_traj
+from force_model.dynamics import ControllerModel, Converter
 p = ExperimentParameters()
 dd = DroneData()
 
@@ -18,7 +18,7 @@ class OCP():
         self.sim = None
         self.integrator = None  # sim_solver
 
-    def create_ocp(self, model, x0):
+    def create_ocp(self, model):
 
         self.ocp = AcadosOcp()
         self.ocp.code_export_directory = 'c_generated_code_' + self.ocp_name
@@ -75,7 +75,7 @@ class OCP():
             [dd.max_p_x, dd.max_p_z, dd.max_v_x, dd.max_v_z])
         self.ocp.constraints.idxbx = np.array([0, 1, 2, 3])
 
-        self.ocp.constraints.x0 = x0
+        self.ocp.constraints.x0 = np.zeros(nx)
 
     def create_ocp_solver(self):
 
@@ -110,8 +110,16 @@ class OCP():
 
         return self.integrator.get("x")
 
+    def set_up_ocp(self, iter, xref, uref):
+        # Set up OCP
+        for k in range(p.N_horizon):
+            self.ocp_solver.set(k, 'yref', np.hstack(
+                (xref[(iter + k)*p.ctrls_per_sample], uref[iter + k])))
+        self.ocp_solver.set(p.N_horizon, 'yref',
+                            xref[(iter + p.N_horizon)*p.ctrls_per_sample])
 
-def main(circle: bool = False):
+
+def test_ocp(circle: bool = False):
 
     controllerModel = ControllerModel()
     plantModel = PlantModel()
@@ -134,7 +142,6 @@ def main(circle: bool = False):
     # output arrays
     Xsim = np.zeros((p.N+1, nx))
     Xsim[0, :] = copy.deepcopy(xref[0, :])
-    Xsim[0, :] = np.zeros(Xsim.shape[1])
     U_opt_plant = np.zeros((p.N, nu))
 
     # create OCP
@@ -144,16 +151,16 @@ def main(circle: bool = False):
     ocp.create_simulator(plantModel.model)
 
     # Solve OCP
+    closed_loop_cost = 0
     for iteration in range(p.N):
-        # Set up OCP
-        for k in range(p.N_horizon):
-            ocp.ocp_solver.set(k, 'yref', np.hstack(
-                (xref[iteration + k, :], uref[iteration + k, :])))
-        ocp.ocp_solver.set(p.N_horizon, 'yref',
-                           xref[iteration + p.N_horizon, :])
+        ocp.set_up_ocp(iteration, xref, uref)
 
+        # Solve
         U_opt_control = ocp.ocp_solver.solve_for_x0(
             x0_bar=Xsim[iteration, :])
+        closed_loop_cost += ocp.ocp_solver.get_cost()
+
+        # convert U_opt_ctrl to _plant
         U_opt_plant[iteration, :] = converter.convert(U_opt_control)
 
         print(
@@ -162,10 +169,11 @@ def main(circle: bool = False):
         Xsim[iteration+1, :] = ocp.simulate_next_x(
             Xsim[iteration, :], U_opt_plant[iteration, :])
 
-    # show results
-    create_plots(xref, Xsim, U_opt_plant, store_plots=False)
+    # # show results
+    create_plots(xref, Xsim, U_opt_plant, store_plots=False, show_plots=False)
+    print(f'Total COST: {closed_loop_cost}')
 
 
 # define main function for testing
 if __name__ == '__main__':
-    main(circle=True)
+    test_ocp(circle=True)

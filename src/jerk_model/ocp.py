@@ -1,10 +1,10 @@
 import numpy as np
-from jerk_model.gen_trajectory import gen_circle_traj, gen_static_point_traj, gen_straight_traj, gen_straight_u
-from store_results import create_plots
 from acados_template import AcadosOcp, AcadosOcpSolver, AcadosSim, AcadosSimSolver
-from plant import PlantModel
-from dynamics import ControllerModel, Converter
 from params import ExperimentParameters, DroneData
+from store_results import create_plots
+from plant import PlantModel
+from jerk_model.gen_trajectory import gen_circle_traj, gen_static_point_traj, gen_straight_traj, gen_straight_u
+from jerk_model.dynamics import ControllerModel, Converter
 p = ExperimentParameters()
 dd = DroneData()
 
@@ -97,7 +97,7 @@ class OCP():
 
         self.sim = AcadosSim()
         self.sim.model = model
-        self.sim.solver_options.T = p.dt_converter
+        self.sim.solver_options.T = p.dt_conv
         self.integrator = AcadosSimSolver(self.sim, verbose=False)
 
     def simulate_next_x(self, x0, u):
@@ -108,8 +108,16 @@ class OCP():
 
         return self.integrator.get("x")
 
+    def set_up_ocp(self, iter, xref, uref):
+        # Set up OCP
+        for k in range(p.N_horizon):
+            self.ocp_solver.set(k, 'yref', np.hstack(
+                (xref[(iter + k)*p.ctrls_per_sample], uref[iter + k])))
+        self.ocp_solver.set(p.N_horizon, 'yref',
+                            xref[(iter + p.N_horizon)*p.ctrls_per_sample])
 
-def main(circle: bool = False):
+
+def test_ocp(circle: bool = False):
 
     controllerModel = ControllerModel()
     plantModel = PlantModel()
@@ -145,18 +153,15 @@ def main(circle: bool = False):
     ocp.create_simulator(plantModel.model)
 
     # Solve OCP
+    closed_loop_cost = 0
     for iter in range(p.N):
-        # Set up OCP
-        for k in range(p.N_horizon):
-            ocp.ocp_solver.set(k, 'yref', np.hstack(
-                (xref[(iter + k)*cps], uref[iter + k])))
-        ocp.ocp_solver.set(p.N_horizon, 'yref',
-                           xref[(iter + p.N_horizon)*cps])
+        ocp.set_up_ocp(iter, xref, uref)
 
         # Solve
         x0_bar = np.hstack((Xsim[iter*cps], a_i))
         U_opt_ctrl[iter] = ocp.ocp_solver.solve_for_x0(
             x0_bar)
+        closed_loop_cost += ocp.ocp_solver.get_cost()
 
         # convert U_opt_ctrl to _plant
         u_tmp, a_i = converter.convert(U_opt_ctrl[iter], a_i)
@@ -172,10 +177,11 @@ def main(circle: bool = False):
             Xsim[iter*cps+i+1, :nx_plant] = ocp.simulate_next_x(
                 Xsim[iter*cps+i], U_opt_plant[iter*cps+i])
 
-    # show results
-    create_plots(xref, Xsim, U_opt_plant, store_plots=False)
+    # # show results
+    create_plots(p.dt_conv, xref[:p.N_conv], Xsim[:p.N_conv], U_opt_plant)
+    print(f'Total COST: {closed_loop_cost}')
 
 
 # define main function for testing
 if __name__ == '__main__':
-    main(circle=True)
+    test_ocp(circle=True)

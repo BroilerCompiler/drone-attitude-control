@@ -57,8 +57,8 @@ class DroneData:
         self.max_a_x = 15
         self.min_a_z = -15
         self.max_a_z = 15
-        self.min_jerk = -15
-        self.max_jerk = 15
+        self.min_jerk = -5
+        self.max_jerk = 5
         self.HOVER_RPM = np.sqrt(self.GRAVITY / (4 * self.KF))
         self.MAX_RPM = np.sqrt(
             (self.THRUST2WEIGHT_RATIO * self.GRAVITY) / (4 * self.KF))
@@ -114,9 +114,10 @@ class ExperimentParameters:
     def __init__(self):
         self.T = 10
         self.dt = 1/50  # dt of the MPC
-        self.dt_converter = 1/200  # lower level can be faster -> better performance
-        self.ctrls_per_sample = int(self.dt / self.dt_converter)
+        self.dt_conv = 1/200  # lower level can be faster -> better performance
+        self.ctrls_per_sample = int(self.dt / self.dt_conv)
         self.N = int(self.T/self.dt)
+        self.N_conv = int(self.T/self.dt_conv)
         self.N_horizon = 30
 
 
