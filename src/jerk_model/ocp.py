@@ -34,8 +34,8 @@ class OCP():
         ny_e = nx
 
         # weighting matrices
-        w_x = np.array([1e2, 1e2, 1e2, 1e2, 0, 0])
-        w_x_e = np.array([1e2, 1e2, 1e2, 1e2, 0, 0])
+        w_x = np.array([1e2, 1e2, 1e0, 1e0, 0, 0])
+        w_x_e = np.array([1e2, 1e2, 1e0, 1e0, 0, 0])
         Q = np.diag(w_x)
 
         w_u = np.array([1e-1]*nu)
@@ -100,13 +100,15 @@ class OCP():
         self.sim.solver_options.T = p.dt_conv
         self.integrator = AcadosSimSolver(self.sim, verbose=False)
 
-    def simulate_next_x(self, x0, u):
+    def simulate_next_x(self, x0, u, noise):
 
         self.integrator.set("u", u)
         self.integrator.set("x", x0)
         self.integrator.solve()
 
-        return self.integrator.get("x")
+        x_next = self.integrator.get("x")
+        eps = np.random.normal(0, p.noise) if noise else 0
+        return x_next + eps
 
     def set_up_ocp(self, iter, xref, uref):
         # Set up OCP
@@ -175,7 +177,7 @@ def test_ocp(circle: bool = False):
         # (one optimal jerk command produces multiple U_opt_plant commands)
         for i in range(p.ctrls_per_sample):
             Xsim[iter*cps+i+1, :nx_plant] = ocp.simulate_next_x(
-                Xsim[iter*cps+i], U_opt_plant[iter*cps+i])
+                Xsim[iter*cps+i], U_opt_plant[iter*cps+i], noise=False)
 
     # # show results
     create_plots(p.dt_conv, xref[:p.N_conv], Xsim[:p.N_conv], U_opt_plant)

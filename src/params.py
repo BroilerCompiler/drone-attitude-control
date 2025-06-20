@@ -119,6 +119,7 @@ class ExperimentParameters:
         self.N = int(self.T/self.dt)
         self.N_conv = int(self.T/self.dt_conv)
         self.N_horizon = 30
+        self.noise = 0.01
 
 
 # define main function for testing

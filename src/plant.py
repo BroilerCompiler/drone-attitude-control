@@ -7,7 +7,7 @@ dd = DroneData()
 
 class PlantModel:
 
-    def __init__(self):
+    def __init__(self, noise=True):
         '''
         Generate acados model for the crazyflie dynamics in 2D.
         Only x and z direction are considered -> only pitch angle (theta).
@@ -27,10 +27,9 @@ class PlantModel:
         f_expl = ca.vertcat(
             vx,
             vz,
-            # + np.random.normal(0, 0.1),  # ax
-            1/dd.MASS * Fd * ca.sin(theta),
+            1/dd.MASS * Fd * ca.sin(theta),  # ax
             1/dd.MASS * Fd *
-            ca.cos(theta) - dd.GRAVITY_ACC  # + np.random.normal(0, 0.1)  # az
+            ca.cos(theta) - dd.GRAVITY_ACC  # az
         )
 
         xdot = ca.SX.sym('xdot', f_expl.shape[0])

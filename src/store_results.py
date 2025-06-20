@@ -174,6 +174,12 @@ def create_plots(dt, XRef, XSim, UOpt, store_plots=False, show_plots=True):
         print('Stored plots to ../experiment_data/img/')
 
 
+def calc_aed(pref, psim):
+    euclidean_distances = np.sqrt((pref - psim) ** 2)
+    average_euclidean_distance = np.mean(euclidean_distances)
+    return average_euclidean_distance
+
+
 # define main function for testing
 if __name__ == '__main__':
 

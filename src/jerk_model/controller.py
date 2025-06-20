@@ -5,10 +5,10 @@ from jerk_model.dynamics import ControllerModel, Converter
 from jerk_model.ocp import OCP
 
 
-def follow_trajectory(xref, uref, x0, verbose=True):
+def follow_trajectory(xref, uref, x0, noise, verbose=True):
     p = ExperimentParameters()
     dd = DroneData()
-    plantModel = PlantModel()
+    plantModel = PlantModel(noise)
     controllerModel = ControllerModel()
     converter = Converter()
     ocp = OCP()
@@ -48,7 +48,7 @@ def follow_trajectory(xref, uref, x0, verbose=True):
 
         for i in range(cps):
             Xsim[iteration*cps+i +
-                 1] = ocp.simulate_next_x(Xsim[iteration*cps+i], U_opt_plant[iteration*cps+i])
+                 1] = ocp.simulate_next_x(Xsim[iteration*cps+i], U_opt_plant[iteration*cps+i], noise)
 
         if verbose:
             print(

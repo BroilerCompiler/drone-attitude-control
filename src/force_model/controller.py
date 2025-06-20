@@ -5,9 +5,9 @@ from force_model.dynamics import ControllerModel, Converter
 from force_model.ocp import OCP
 
 
-def follow_trajectory(xref, uref, x0, verbose=True):
+def follow_trajectory(xref, uref, x0, noise, verbose=True):
     p = ExperimentParameters()
-    plantModel = PlantModel()
+    plantModel = PlantModel(noise)
     controllerModel = ControllerModel()
     converter = Converter()
     ocp = OCP()
@@ -40,7 +40,7 @@ def follow_trajectory(xref, uref, x0, verbose=True):
 
         # Simulate next state
         Xsim[iteration+1,
-             :] = ocp.simulate_next_x(Xsim[iteration, :], U_opt_plant[iteration, :])
+             :] = ocp.simulate_next_x(Xsim[iteration, :], U_opt_plant[iteration, :], noise)
 
         if verbose:
             print(

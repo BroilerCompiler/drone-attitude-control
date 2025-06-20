@@ -102,13 +102,15 @@ class OCP():
         self.sim.solver_options.T = p.dt
         self.integrator = AcadosSimSolver(self.sim, verbose=False)
 
-    def simulate_next_x(self, x0, u):
+    def simulate_next_x(self, x0, u, noise):
 
         self.integrator.set("u", u)
         self.integrator.set("x", x0)
         self.integrator.solve()
 
-        return self.integrator.get("x")
+        x_next = self.integrator.get("x")
+        eps = np.random.normal(0, p.noise) if noise else 0
+        return x_next + eps
 
     def set_up_ocp(self, iter, xref, uref):
         # Set up OCP
@@ -167,7 +169,7 @@ def test_ocp(circle: bool = False):
             f'{iteration}: U_opt [theta F_d]: {np.round(U_opt_plant[iteration, :], 2)} X: {np.round(Xsim[iteration, :], 2)}')
 
         Xsim[iteration+1, :] = ocp.simulate_next_x(
-            Xsim[iteration, :], U_opt_plant[iteration, :])
+            Xsim[iteration, :], U_opt_plant[iteration, :], noise=False)
 
     # # show results
     create_plots(xref, Xsim, U_opt_plant, store_plots=False, show_plots=False)
