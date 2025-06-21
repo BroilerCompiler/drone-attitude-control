@@ -24,12 +24,12 @@ Controlling the drone via its attitude and total thrust. Using acados and CasADi
 1. Clone the repository:
 
    ```sh
-   git clone https://github.com/yourusername/yourproject.git
+   git clone https://github.com/BroilerCompiler/drone-attitude-control.git
 
 2. Navigate to the project directory:
 
    ```sh
-    cd yourproject
+    cd drone-attitude-control
 
 3. Create a virtual environment (optional but recommended):
 
