@@ -37,5 +37,5 @@ def main(x0, force=True, jerk=True, noise=True, verbose=False):
 
 
 if __name__ == '__main__':
-    x0 = np.array([1, 0, 0, 0])
+    x0 = np.array([0.7, 0, 0, 0])
     main(x0, force=True, jerk=True, noise=True, verbose=False)
