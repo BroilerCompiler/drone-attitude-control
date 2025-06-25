@@ -114,7 +114,7 @@ class ExperimentParameters:
     def __init__(self):
         self.T = 10
         self.dt = 1/50  # dt of the MPC
-        self.dt_conv = 1/200  # lower level can be faster -> better performance
+        self.dt_conv = 1/200  # lower level can be faster
         self.ctrls_per_sample = int(self.dt / self.dt_conv)
         self.N = int(self.T/self.dt)
         self.N_conv = int(self.T/self.dt_conv)

@@ -109,6 +109,7 @@ class OCP():
         self.integrator.solve()
 
         x_next = self.integrator.get("x")
+
         eps = np.random.normal(0, p.noise) if noise else 0
         return x_next + eps
 

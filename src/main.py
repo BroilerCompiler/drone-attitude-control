@@ -16,6 +16,7 @@ def main(x0, force=True, jerk=True, noise=True, verbose=False):
 
     if force:
         print("fly circle with force model")
+        # TODO: add g as a_z uref
         cost_force, xsim_force, uopt_force = force_model.controller.follow_trajectory(
             xref[:, :4], uref, x0, noise, verbose)
 
@@ -37,5 +38,6 @@ def main(x0, force=True, jerk=True, noise=True, verbose=False):
 
 
 if __name__ == '__main__':
-    x0 = np.array([0.7, 0, 0, 0])
-    main(x0, force=True, jerk=True, noise=True, verbose=False)
+    np.random.seed(42)
+    x0 = np.array([0.7, 0, 0, 0.0])
+    main(x0, force=True, jerk=True, noise=False, verbose=False)
