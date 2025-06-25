@@ -100,6 +100,7 @@ class OCP():
         self.sim = AcadosSim()
         self.sim.model = model
         self.sim.solver_options.T = p.dt
+        self.sim.solver_options.num_stages = 4
         self.integrator = AcadosSimSolver(self.sim, verbose=False)
 
     def simulate_next_x(self, x0, u, noise):
@@ -117,9 +118,8 @@ class OCP():
         # Set up OCP
         for k in range(p.N_horizon):
             self.ocp_solver.set(k, 'yref', np.hstack(
-                (xref[(iter + k)*p.ctrls_per_sample], uref[iter + k])))
-        self.ocp_solver.set(p.N_horizon, 'yref',
-                            xref[(iter + p.N_horizon)*p.ctrls_per_sample])
+                (xref[iter + k], uref[iter + k])))
+        self.ocp_solver.set(p.N_horizon, 'yref', xref[iter + p.N_horizon])
 
 
 def test_ocp(circle: bool = False):

@@ -53,8 +53,8 @@ class DroneData:
         self.max_v_x = 1
         self.min_v_z = -1
         self.max_v_z = 1
-        self.min_a_x = -15
-        self.max_a_x = 15
+        self.min_a_x = -15 + self.GRAVITY_ACC
+        self.max_a_x = 15 + self.GRAVITY_ACC
         self.min_a_z = -15
         self.max_a_z = 15
         self.min_jerk = -5

@@ -56,13 +56,13 @@ class Converter:
     def __init__(self):
         pass
 
-    def convert(self, h, a_i):
+    def convert(self, h, a_i) -> tuple[list[np.ndarray], float]:
         """
         Implements a_{i+1} = a_i + h_iter * dt_conv
 
         Converts from the controller model (h is jerk) 
         to plant model (u are Thrust and pitch).
-        Takes single u aswell as vector of u.
+        Takes single u.
         Returns more controls than it took in, because the input is oversampled and 
         at every sample point the acceleration is calculated (grows linearly at constant jerk)
 
@@ -73,29 +73,14 @@ class Converter:
             _type_: pitch, Thrust
         """
         # input is only single u
-        if len(h.shape) == 1:
-            return self.convert_one(h, a_i)
-
-        # input is a vector of u
-        else:
-            cps = p.ctrls_per_sample
-            u = np.zeros((h.shape[0]*cps, h.shape[1]))
-            a = np.zeros((h.shape))
-            for i in range(h.shape[0]):
-                u[i*cps: i*cps + cps], a_i = self.convert_one(h[i], a_i)
-                a[i] = a_i
-        return u, a
-
-    def convert_one(self, h, a):
         u = np.zeros((p.ctrls_per_sample, 2))
         for j in range(p.ctrls_per_sample):
-            a += h * p.dt_conv  # integrate over h
-
-            F_x = dd.MASS * a[0]
-            F_z = dd.MASS * a[1]
+            a_i += h * p.dt_conv  # integrate over h
+            F_x = dd.MASS * a_i[0]
+            F_z = dd.MASS * a_i[1]
             u[j, 0] = np.arctan2(F_x, F_z)  # theta
             u[j, 1] = np.sqrt(F_x*F_x + F_z*F_z)  # F_d
-        return u, a
+        return u, a_i
 
 
 def simulate_dynamics(model, x0, u):

@@ -83,7 +83,8 @@ class OCP():
         # Solver options
         self.ocp.solver_options.qp_solver = 'PARTIAL_CONDENSING_HPIPM'
         self.ocp.solver_options.hessian_approx = 'GAUSS_NEWTON'
-        self.ocp.solver_options.integrator_type = 'IRK'
+        self.ocp.solver_options.integrator_type = 'ERK'
+        self.ocp.solver_options.sim_method_num_stages = 1
         self.ocp.solver_options.nlp_solver_type = 'SQP'
         self.ocp.solver_options.print_level = 0
 
@@ -98,25 +99,28 @@ class OCP():
         self.sim = AcadosSim()
         self.sim.model = model
         self.sim.solver_options.T = p.dt_conv
+        self.sim.solver_options.integrator_type = 'ERK'
+        self.sim.solver_options.num_stages = 1
         self.integrator = AcadosSimSolver(self.sim, verbose=False)
 
     def simulate_next_x(self, x0, u, noise):
+        # discard intermediate states with higher frequency
+        x_i = x0
+        for i in range(p.ctrls_per_sample):
+            self.integrator.set("u", u[i])
+            self.integrator.set("x", x_i)
+            self.integrator.solve()
+            x_i = self.integrator.get("x")
 
-        self.integrator.set("u", u)
-        self.integrator.set("x", x0)
-        self.integrator.solve()
-
-        x_next = self.integrator.get("x")
         eps = np.random.normal(0, p.noise) if noise else 0
-        return x_next + eps
+        return x_i + eps
 
-    def set_up_ocp(self, iter, xref, uref):
+    def set_up_ocp(self, iteration, xref, uref):
         # Set up OCP
         for k in range(p.N_horizon):
             self.ocp_solver.set(k, 'yref', np.hstack(
-                (xref[(iter + k)*p.ctrls_per_sample], uref[iter + k])))
-        self.ocp_solver.set(p.N_horizon, 'yref',
-                            xref[(iter + p.N_horizon)*p.ctrls_per_sample])
+                (xref[iteration + k], uref[iteration + k])))
+        self.ocp_solver.set(p.N_horizon, 'yref', xref[iteration + p.N_horizon])
 
 
 def test_ocp(circle: bool = False):
