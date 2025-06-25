@@ -2,14 +2,13 @@
 import numpy as np
 import force_model.controller
 import jerk_model.controller
-from params import ExperimentParameters, DroneData
+from params import ExperimentParameters
 from generate_trajectory import gen_circle_traj
 from store_results import create_plots, calc_aed
 
 
 def main(x0, force=True, jerk=True, noise=True, plots=True, verbose=False):
     p = ExperimentParameters()
-    dd = DroneData()
 
     # generate reference circle
     ref = gen_circle_traj(p.N, p.N_horizon, nx=6, nu=2,
@@ -43,5 +42,5 @@ def main(x0, force=True, jerk=True, noise=True, plots=True, verbose=False):
 
 if __name__ == '__main__':
     np.random.seed(42)
-    x0 = np.array([1.7, 0, 0, 0.0])
-    main(x0, force=True, jerk=True, noise=False, plots=True, verbose=False)
+    x0 = np.array([1.0, 0, 0, 0.62])
+    main(x0, force=True, jerk=True, noise=True, plots=True, verbose=False)
