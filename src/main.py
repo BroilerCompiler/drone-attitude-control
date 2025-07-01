@@ -25,7 +25,7 @@ def main(x0, force=True, jerk=True, noise=True, plots=True, verbose=False):
             f'FORCE: Total cost: {np.round(cost_force, 2)}, AvgEucDist: {aed_force}')
         if plots:
             create_plots(
-                p.dt, res_force[0], res_force[1], res_force[2], res_force[3])
+                p.dt, res_force[0], res_force[1], None, res_force[3])
     if jerk:
         print("fly circle with jerk model")
         cost_jerk, xsim_jerk, a_jerk, uopt_jerk = jerk_model.controller.follow_trajectory(

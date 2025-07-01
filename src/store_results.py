@@ -35,15 +35,16 @@ def create_position(XRef, XSim, d, store_plots, show_plots):
                    linestyles='--', color='black')
         plt.vlines(x=[dd.min_p_z, dd.max_p_z], ymin=dd.min_p_x, ymax=dd.max_p_x, linewidth=1,
                    linestyles='--', color='black')
-        plt.scatter(XSim[0, 0], XSim[0, 1],
-                    label='Starting point', color='green')
-        plt.scatter(XSim[int(XSim.shape[0]/4), 0], XSim[int(XSim.shape[0]/4), 1],
-                    label='direction', color='lightgreen')
+        # plt.scatter(XSim[int(XSim.shape[0]/4), 0], XSim[int(XSim.shape[0]/4), 1],
+        #             label='direction', color='lightgreen')
     if XRef is not None:
         plt.plot(XRef[:, 0], XRef[:, 1],
                  label='$p^\\mathrm{ref}$', linestyle=ls_ref, color=col_x_2, alpha=0.7)
-        plt.scatter(XRef[int(XRef.shape[0]/4), 0], XRef[int(XRef.shape[0]/4), 1],
-                    label='direction ref', color='lightblue')
+        # plt.scatter(XRef[int(XRef.shape[0]/4), 0], XRef[int(XRef.shape[0]/4), 1],
+        #             label='direction ref', color='lightblue')
+    if XSim is not None:
+        plt.scatter(XSim[0, 0], XSim[0, 1],
+                    label='Starting point', color='green')
     plt.axis('equal')
     plt.grid()
     plt.xlabel('Position (m)')
@@ -110,9 +111,9 @@ def create_acceleration(XRef, a, d, store_plots, show_plots):
     if a is not None:
         plt.plot(a[:, 0], a[:, 1],
                  label='$a^\\mathrm{sim}$', linestyle=ls_sim, color=col_x_1, alpha=0.7, marker='x')
-        plt.hlines(y=[dd.min_a_x, dd.max_a_x], xmin=dd.min_a_z, xmax=dd.max_a_z, linewidth=1,
+        plt.hlines(y=[dd.min_a_z, dd.max_a_z], xmin=dd.min_a_x, xmax=dd.max_a_x, linewidth=1,
                    linestyles='--', color='black')
-        plt.vlines(x=[dd.min_a_z, dd.max_a_z], ymin=dd.min_a_x, ymax=dd.max_a_x, linewidth=1,
+        plt.vlines(x=[dd.min_a_x, dd.max_a_x], ymin=dd.min_a_z, ymax=dd.max_a_z, linewidth=1,
                    linestyles='--', color='black')
         plt.scatter(a[0, 0], a[0, 1],
                     label='Starting point', color='green')
@@ -130,7 +131,7 @@ def create_acceleration(XRef, a, d, store_plots, show_plots):
     plt.tight_layout()
 
     if store_plots:
-        plt.savefig('../experiment_data/img/' + d + '_traj_vel.pdf',
+        plt.savefig('../experiment_data/img/' + d + '_traj_acc.pdf',
                     pad_inches=0, bbox_inches='tight')
     if show_plots:
         plt.show()
@@ -146,60 +147,63 @@ def create_componentwise(dt, XRef, XSim, a, UOpt, d, store_plots, show_plots):
     width = 5  # inches
     height = 5  # inches
 
-    fig, ax = plt.subplots(5, sharex=True, figsize=(
+    fig, ax = plt.subplots(4 if a is None else 5, sharex=True, figsize=(
         width, height), layout='constrained')
+    plt.xlim(left=0, right=p.T)
     x = np.arange(0, p.T, dt)
 
     # component-wise
     if XSim is not None:
-        ax[0].plot(x, XSim[:, 0], label='$p^\\mathrm{sim}_\\mathrm{x}$',
+        ax[0].plot(x, XSim[:, 0], label='$p^\\mathrm{sim}$',
                    linestyle=ls_sim, color=col_x_1, alpha=0.7)
-        ax[0].plot(x, XSim[:, 1], label='$p^\\mathrm{sim}_\\mathrm{z}$',
+        ax[0].plot(x, XSim[:, 1],
                    linestyle=ls_sim, color=col_x_1, alpha=0.7)
-        ax[1].plot(x, XSim[:, 2], label='$v^\\mathrm{sim}_\\mathrm{x}$',
+        ax[1].plot(x, XSim[:, 2], label='$v^\\mathrm{sim}$',
                    linestyle=ls_sim, color=col_x_1, alpha=0.7)
-        ax[1].plot(x, XSim[:, 3], label='$v^\\mathrm{sim}_\\mathrm{z}$',
+        ax[1].plot(x, XSim[:, 3],
                    linestyle=ls_sim, color=col_x_1, alpha=0.7)
     if XRef is not None:
         ax[0].plot(x, XRef[:, 0],
-                   label='$p^\\mathrm{ref}_\\mathrm{x}$', linestyle=ls_ref, color=col_x_2, alpha=0.7)
+                   label='$p^\\mathrm{ref}$', linestyle=ls_ref, color=col_x_2, alpha=0.7)
         ax[0].plot(x, XRef[:, 1],
-                   label='$p^\\mathrm{ref}_\\mathrm{z}$', linestyle=ls_ref, color=col_x_2, alpha=0.7)
+                   linestyle=ls_ref, color=col_x_2, alpha=0.7)
         ax[1].plot(x, XRef[:, 2],
-                   label='$v^\\mathrm{ref}_\\mathrm{x}$', linestyle=ls_ref, color=col_x_2, alpha=0.7)
+                   label='$v^\\mathrm{ref}$', linestyle=ls_ref, color=col_x_2, alpha=0.7)
         ax[1].plot(x, XRef[:, 3],
-                   label='$v^\\mathrm{ref}_\\mathrm{z}$', linestyle=ls_ref, color=col_x_2, alpha=0.7)
-        ax[2].plot(x, XRef[:, 4],
-                   label='$a^\\mathrm{ref}_\\mathrm{x}$', linestyle=ls_ref, color=col_x_2, alpha=0.7)
-        ax[2].plot(x, XRef[:, 5],
-                   label='$a^\\mathrm{ref}_\\mathrm{z}$', linestyle=ls_ref, color=col_x_2, alpha=0.7)
+                   linestyle=ls_ref, color=col_x_2, alpha=0.7)
+        if a is not None:
+            ax[2].plot(x, XRef[:, 4],
+                       label='$a^\\mathrm{ref}$', linestyle=ls_ref, color=col_x_2, alpha=0.7)
+            ax[2].plot(x, XRef[:, 5],
+                       linestyle=ls_ref, color=col_x_2, alpha=0.7)
     if a is not None:
         ax[2].plot(
-            x, a[:, 0], label='$a^\\mathrm{sim}_\\mathrm{x}$', linestyle=ls_sim, color=col_x_2, alpha=0.7)
+            x, a[:, 0], label='$a^\\mathrm{sim}$', linestyle=ls_sim, color=col_x_2, alpha=0.7)
         ax[2].plot(
-            x, a[:, 1], label='$a^\\mathrm{sim}_\\mathrm{z}$', linestyle=ls_sim, color=col_x_2, alpha=0.7)
+            x, a[:, 1], linestyle=ls_sim, color=col_x_2, alpha=0.7)
     if UOpt is not None:
-        ax[3].plot(x, UOpt[:, 0], label='$\\theta$',
-                   linestyle=ls_sim, color=col_u, alpha=0.7)
-        ax[4].plot(x, UOpt[:, 1],
-                   label='$F_\\mathrm{d}$', linestyle=ls_sim, color=col_u, alpha=0.7)
+        ax[3 if a is not None else 2].plot(x, UOpt[:, 0], label='$\\theta$',
+                                           linestyle=ls_sim, color=col_u, alpha=0.7)
+        ax[4 if a is not None else 3].plot(x, UOpt[:, 1],
+                                           label='$F_\\mathrm{d}$', linestyle=ls_sim, color=col_u, alpha=0.7)
     fig.supxlabel('Time (s)')
     fig.align_ylabels()
     ax[0].grid()
     ax[1].grid()
     ax[2].grid()
     ax[3].grid()
-    ax[4].grid()
-    ax[0].set_ylabel('Position (m)')
-    ax[1].set_ylabel('Velocity (m/s)')
-    ax[3].set_ylabel('Acceleration (m/s)')
-    ax[3].set_ylabel('Angle (rad)')
-    ax[4].set_ylabel('Thrust (N)')
+    if a is not None:
+        ax[4].grid()
+        ax[2].set_ylabel('Acceleration\n(m/s)')
+        ax[4].legend(loc='center left', bbox_to_anchor=(1, 0.5))
+    ax[0].set_ylabel('Position\n(m)')
+    ax[1].set_ylabel('Velocity\n(m/s)')
+    ax[3 if a is not None else 2].set_ylabel('Angle\n(rad)')
+    ax[4 if a is not None else 3].set_ylabel('Thrust\n(N)')
     ax[0].legend(loc='center left', bbox_to_anchor=(1, 0.5))
     ax[1].legend(loc='center left', bbox_to_anchor=(1, 0.5))
     ax[2].legend(loc='center left', bbox_to_anchor=(1, 0.5))
     ax[3].legend(loc='center left', bbox_to_anchor=(1, 0.5))
-    ax[4].legend(loc='center left', bbox_to_anchor=(1, 0.5))
 
     if store_plots:
         plt.savefig('../experiment_data/img/' + d + '_trajectory_component.pdf',
@@ -208,7 +212,7 @@ def create_componentwise(dt, XRef, XSim, a, UOpt, d, store_plots, show_plots):
         plt.show()
 
 
-def create_plots(dt, XRef, XSim, a, UOpt, store_plots=False, show_plots=True):
+def create_plots(dt, XRef, XSim, a, UOpt, store_plots=True, show_plots=False):
     if not show_plots and not store_plots:
         return None
 
@@ -218,7 +222,8 @@ def create_plots(dt, XRef, XSim, a, UOpt, store_plots=False, show_plots=True):
     d = datetime.today().strftime('%Y-%m-%d %H_%M_%S')
     create_position(XRef, XSim, d, store_plots, show_plots)
     create_velocity(XRef, XSim, d, store_plots, show_plots)
-    create_acceleration(XRef, a, d, store_plots, show_plots)
+    if a is not None:
+        create_acceleration(XRef, a, d, store_plots, show_plots)
     create_componentwise(dt, XRef, XSim, a, UOpt, d, store_plots, show_plots)
 
     if store_plots:
