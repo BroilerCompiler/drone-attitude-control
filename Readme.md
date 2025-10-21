@@ -1,4 +1,4 @@
-## Drone attitude control
+# Drone attitude control
 
 Simulating a drone following a trajectory.
 Controlling the drone via its attitude and total thrust. Using acados and CasADi 
@@ -6,11 +6,11 @@ Controlling the drone via its attitude and total thrust. Using acados and CasADi
 ## Table of Contents
 
 - [Drone attitude control](#drone-attitude-control)
-- [Table of Contents](#table-of-contents)
-- [Installation](#installation)
-  - [Prerequisites](#prerequisites)
-  - [Steps](#steps)
-- [Usage](#usage)
+  - [Table of Contents](#table-of-contents)
+  - [Installation](#installation)
+    - [Prerequisites](#prerequisites)
+    - [Steps](#steps)
+  - [Usage](#usage)
 
 ## Installation
 
@@ -40,6 +40,7 @@ Controlling the drone via its attitude and total thrust. Using acados and CasADi
 4. Install the required packages:
 
    Install acados_template Python package:
+
    ```sh
     pip install <acados_root>/interfaces/acados_template
     pip install -r requirements.txt
@@ -47,4 +48,5 @@ Controlling the drone via its attitude and total thrust. Using acados and CasADi
 ## Usage
 
    ```sh
+    cd src/
     python main.py

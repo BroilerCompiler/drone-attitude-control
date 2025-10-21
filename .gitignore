@@ -1,4 +1,6 @@
 __pycache__
 c_generated*
 *.json
-experiment_data*
+experiment_data/img/*
+!example*
+venv*
