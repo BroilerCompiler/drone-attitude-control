@@ -39,7 +39,9 @@ Controlling the drone via its attitude and total thrust. Using acados and CasADi
 
 4. Install the required packages:
 
+   Install acados_template Python package:
    ```sh
+    pip install <acados_root>/interfaces/acados_template
     pip install -r requirements.txt
 
 ## Usage
